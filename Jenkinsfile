@@ -12,13 +12,16 @@ pipeline {
       }
     }
     stage('Run Tests') {
-      steps {
-        sh 'npm run test-jenkins'
-      }
       post {
         always {
           junit '/report.xml'
+
         }
+
+      }
+      steps {
+        sh 'npm run test-jenkins'
+        archiveArtifacts(artifacts: 'report.xml', allowEmptyArchive: true)
       }
     }
   }
