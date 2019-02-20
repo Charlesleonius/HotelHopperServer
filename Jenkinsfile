@@ -14,7 +14,9 @@ pipeline {
     stage('Run Tests') {
       steps {
         sh 'npm run test-jenkins'
-        junit(testResults: 'Mocha Tests', allowEmptyResults: true)
+      }
+      post {
+        junit '/report.xml'
       }
     }
   }
