@@ -21,7 +21,7 @@ pipeline {
       }
       steps {
         sh 'npm run test-jenkins'
-        archiveArtifacts(artifacts: 'report.xml', allowEmptyArchive: true)
+        archiveArtifacts(artifacts: 'test-result/result.xml', allowEmptyArchive: true)
       }
     }
   }
