@@ -1,14 +1,13 @@
 pipeline {
   agent any
   stages {
-    stage('Install Dependencies') {
+    stage('Build and Test') {
       steps {
-        sh 'npm install'
-      }
-    }
-    stage('Test') {
-      steps {
-        sh 'npm test'
+        nodejs('Hotel Hopper') {
+          sh '''npm install
+npm test'''
+        }
+
       }
     }
   }
