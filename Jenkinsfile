@@ -16,7 +16,9 @@ pipeline {
         sh 'npm run test-jenkins'
       }
       post {
-        junit '/report.xml'
+        always {
+          junit '/report.xml'
+        }
       }
     }
   }
