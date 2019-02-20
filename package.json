@@ -5,7 +5,8 @@
   "main": "app.js",
   "scripts": {
     "start": "app.js",
-    "test": "mocha"
+    "test": "mocha",
+    "test-jenkins": "JUNIT_REPORT_PATH=/report.xml mocha --colors --reporter mocha-jenkins-reporter"
   },
   "repository": {
     "type": "git",
@@ -20,6 +21,7 @@
   "dependencies": {
     "express": "^4.16.4",
     "mocha": "^6.0.0",
+    "mocha-jenkins-reporter": "^0.4.1",
     "mongoose": "^5.4.11",
     "winston": "^3.2.1"
   }
