@@ -6,10 +6,14 @@ pipeline {
 
   }
   stages {
-    stage('') {
+    stage('Install Dependencies') {
       steps {
-        sh '''npm install
-npm test'''
+        sh 'npm install'
+      }
+    }
+    stage('Run Tests') {
+      steps {
+        sh 'npm test'
       }
     }
   }
