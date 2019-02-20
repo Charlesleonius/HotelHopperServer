@@ -3,6 +3,7 @@ pipeline {
   stages {
     stage('Install Dependencies') {
       steps {
+        nodejs 'Hotel Hopper'
         sh 'npm install'
       }
     }
