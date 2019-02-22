@@ -9,6 +9,7 @@ pipeline {
     stage('Install Dependencies') {
       steps {
         sh 'npm install'
+        sh 'cp ~/.env ./.env'
       }
     }
     stage('Run Tests') {
