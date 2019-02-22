@@ -1,23 +1,24 @@
 pipeline {
-  agent {
-    docker {
-      image 'node:6'
+    agent {
+        docker {
+            image 'node:6'
+        }
     }
-
-  }
-  stages {
-    stage('Install Dependencies') {
-      steps {
-        sh 'npm install'
-        sh 'cp ~/.env ./.env'
-      }
+    environment {
+        MONGO_URI = "mongodb://localhost:27017/hotelHopperDB"
     }
-    stage('Run Tests') {
-      steps {
-        sh 'npm run test-jenkins'
-        archiveArtifacts(artifacts: 'test-result/result.xml', allowEmptyArchive: true)
-        junit 'test-result/result.xml'
-      }
+    stages {
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm install'
+            }
+        }
+        stage('Run Tests') {
+            steps {
+                sh 'npm run test-jenkins'
+                archiveArtifacts(artifacts: 'test-result/result.xml', allowEmptyArchive: true)
+                junit 'test-result/result.xml'
+            }
+        }
     }
-  }
 }
