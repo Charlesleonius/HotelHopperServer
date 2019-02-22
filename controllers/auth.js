@@ -4,6 +4,7 @@ var passport = require("passport");
 let Validator = require('validatorjs');
 let bcrypt = require('bcrypt')
 let User = require('../models/auth/user.js').User
+let jwt = require('jsonwebtoken')
 
 //Recommended rounds for password hashing
 const SALT_ROUNDS = 10;
@@ -32,7 +33,7 @@ router.post('/register', function(req, res) {
         return User.create({ email: req.body.email, password: String(hash) }) //Create a new user
     }).then(() => {
         var payload = { email: req.body.email };
-        var token = jwt.sign(payload, jwtOptions.secretOrKey); //Create JWT token with email claim
+        var token = jwt.sign(payload, global.jwtOptions.secretOrKey); //Create JWT token with email claim
         return res.json({
             error: false, 
             message: "OK", 
@@ -72,13 +73,14 @@ router.post('/login', function (req, res) {
             return res.json({
                 error: false, 
                 message: "OK", 
-                data: { token: jwt.sign(payload, jwtOptions.secretOrKey) }
+                data: { token: jwt.sign(payload, global.jwtOptions.secretOrKey) }
             }); //Return a new JWT with email claim
         } else {
             return Promise.reject("Invalid username or password");
         }
     }).catch(err => {
-        res.status(200).json({ error: true, message: err });
+        console.log(err);
+        res.status(200).json({ error: true, message: err || "Invalid username or password" });
     })
 });
 

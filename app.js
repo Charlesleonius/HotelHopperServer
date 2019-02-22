@@ -11,13 +11,11 @@ let User = require('./models/auth/user.js').User
 //JWT Helpers
 var ExtractJwt = passportJWT.ExtractJwt;
 var JwtStrategy = passportJWT.Strategy;
-var jwtOptions = {}
+global.jwtOptions = {}
 jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
 jwtOptions.secretOrKey = 'wEKNYENCpc4HvogKJs0pa1XPD5vbx4ZsxaYzZ8SUwMGBrgOv0A4zK2ZZni2jfFOAkGPdrj7gwJI4j6W2IOI3fT0gYjBmjOKu7FWK';
 
 var strategy = new JwtStrategy(jwtOptions, function(jwt_payload, next) {
-    console.log("asdf")
-    console.log('payload received', jwt_payload);
     User.findOne({ email: jwt_payload.email }).then(user => {
         if (user) {
             next(null, user);
@@ -37,8 +35,11 @@ app.use(bodyParser.json({
     extended: true
 }));
 
-global.mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true });
-app.listen(port, () => console.log(`Example app listening on port ${port}!`))
+global.mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true }).then(db => {
+    app.listen(port, () => console.log(`Example app listening on port ${port}!`))
+}).catch(err => {
+    console.log( "Could not connect to DB");
+});
 
 var auth = require('./controllers/auth.js');
 app.use('/auth', auth);
@@ -51,3 +52,5 @@ app.get('/', (req, res) => res.send('Hello World!'))
 app.get("/secret", passport.authenticate('jwt', { session: false }), function(req, res) {
     res.json("Success! You can not see this without a token");
 });
+
+module.exports = app
