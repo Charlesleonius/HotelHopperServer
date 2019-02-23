@@ -21,12 +21,12 @@ describe('Array', function() {
 
 describe('Login with email and password', () => {
 
-    before(async function() {
+    before(async () => {
         await User.deleteOne({ email: 'test@test.com' })
         await User.create({ 
             email: 'test@test.com', 
             password: "$2b$10$IDmDD/VYelBhCsmBj2vALu6j7W7KuDsYcTL/58yyEkQKOFhM2m3.u" 
-        })
+        });
     });
 
     it('It should return a JWT on login', () => {
@@ -45,8 +45,8 @@ describe('Login with email and password', () => {
         });
     });
 
-    after(async function() {
-        await User.deleteOne({ email: 'test@test.com' })
+    after(async () => {
+        await User.deleteOne({ email: 'test@test.com' });
     });
     
 });
@@ -54,7 +54,7 @@ describe('Login with email and password', () => {
 
 describe('Signup with email and password', () => {
 
-    before(async function() {
+    before(async () => {
         await User.deleteOne({ email: 'test@test.com' })
     });
 
@@ -74,7 +74,7 @@ describe('Signup with email and password', () => {
         });
     });
 
-    after(async function() {
+    after(async () => {
         await User.deleteOne({ email: 'test@test.com' })
     });
 
