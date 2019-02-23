@@ -5,6 +5,7 @@ pipeline {
         }
     }
     environment {
+        HOME = '.'
         MONGO_URI = "mongodb://localhost:27017/hotelHopperDB"
     }
     stages {
