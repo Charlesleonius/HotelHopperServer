@@ -20,12 +20,16 @@ describe('Array', function() {
 
 
 describe('Login with email and password', () => {
-
-    before(async () => {
-        await User.deleteOne({ email: 'test@test.com' })
-        await User.create({ 
-            email: 'test@test.com', 
-            password: "$2b$10$IDmDD/VYelBhCsmBj2vALu6j7W7KuDsYcTL/58yyEkQKOFhM2m3.u" 
+    before(function(done) {
+        User.deleteOne({ email: 'test@test.com' }).then(() => {
+            return User.create({ 
+                email: 'test@test.com', 
+                password: "$2b$10$IDmDD/VYelBhCsmBj2vALu6j7W7KuDsYcTL/58yyEkQKOFhM2m3.u" 
+            });
+        }).then(() => {
+            done();
+        }).catch(err => {
+            done(err);
         });
     });
 
@@ -45,8 +49,12 @@ describe('Login with email and password', () => {
         });
     });
 
-    after(async () => {
-        await User.deleteOne({ email: 'test@test.com' });
+    after(function(done) {
+        User.deleteOne({ email: 'test@test.com' }).then(() => {
+            done();
+        }).catch(err => {
+            done(err);
+        });
     });
     
 });
@@ -54,8 +62,12 @@ describe('Login with email and password', () => {
 
 describe('Signup with email and password', () => {
 
-    before(async () => {
-        await User.deleteOne({ email: 'test@test.com' })
+    before(function(done) {
+        User.deleteOne({ email: 'test@test.com' }).then(() => {
+            done();
+        }).catch(err => {
+            done(err);
+        });
     });
 
     it('It should return a JWT on signup', () => {
@@ -74,8 +86,12 @@ describe('Signup with email and password', () => {
         });
     });
 
-    after(async () => {
-        await User.deleteOne({ email: 'test@test.com' })
+    after(function(done) {
+        User.deleteOne({ email: 'test@test.com' }).then(() => {
+            done();
+        }).catch(err => {
+            done(err);
+        });
     });
 
 });
@@ -90,9 +106,12 @@ describe('Protected endpoints should not be accessed without a valid JWT', () =>
         });
     });
 
-    after(async function() {
-        await User.deleteOne({ email: 'test@test.com' })
+    after(function(done) {
+        User.deleteOne({ email: 'test@test.com' }).then(() => {
+            done();
+        }).catch(err => {
+            done(err);
+        });
     });
 
 });
-
