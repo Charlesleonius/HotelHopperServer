@@ -2,7 +2,7 @@ var express = require('express');
 var router = express.Router();
 var passport = require("passport");
 let Validator = require('validatorjs');
-let bcrypt = require('bcrypt')
+let bcrypt = require('bcryptjs')
 let User = require('../models/auth/user.js').User
 let jwt = require('jsonwebtoken')
 
