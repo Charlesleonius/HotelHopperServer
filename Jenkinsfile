@@ -5,7 +5,7 @@ pipeline {
   stages {
     stage('Install Dependencies') {
       steps {
-        nodejs '/home/ubuntu/.nvm/versions/node/v11.10.0/bin/npm'
+        nodejs 'HotelHopper'
         sh 'npm install'
       }
     }
