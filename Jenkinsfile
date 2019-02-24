@@ -1,9 +1,6 @@
 pipeline {
     agent {
         label 'slave'
-        docker {
-            image 'node:6'
-        }
     }
     environment {
         HOME = '.'
