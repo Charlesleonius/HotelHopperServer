@@ -7,14 +7,13 @@ pipeline {
       steps {
         nodejs('HotelHopper') {
           sh '''npm install
-'''
+npm run test-jenkins'''
         }
 
       }
     }
     stage('Run Tests') {
       steps {
-        sh 'npm run test-jenkins'
         archiveArtifacts(artifacts: 'test-result/result.xml', allowEmptyArchive: true)
         junit 'test-result/result.xml'
       }
