@@ -6,8 +6,10 @@ pipeline {
     stage('Install Dependencies') {
       steps {
         nodejs('HotelHopper') {
-          sh '''npm install
-npm run test-jenkins'''
+          sh '''
+                npm install
+                npm run test-jenkins
+            '''
         }
 
       }
