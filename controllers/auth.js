@@ -2,9 +2,9 @@ var express = require('express');
 var router = express.Router();
 var passport = require("passport");
 let Validator = require('validatorjs');
-let bcrypt = require('bcryptjs')
-let User = require('../models/auth/user.js').User
-let jwt = require('jsonwebtoken')
+let bcrypt = require('bcryptjs');
+let jwt = require('jsonwebtoken');
+let db = require('../models/index.js');
 
 //Recommended rounds for password hashing
 const SALT_ROUNDS = 10;
@@ -23,14 +23,14 @@ router.post('/register', function(req, res) {
     if (validator.fails()) {
         res.status(400).json({ error: true, message: validator.errors["errors"] });
     }
-    User.findOne({ email: req.body.email }).then(user => {
+    db.user.findOne({ where: { email: req.body.email }}).then(user => {
         if (user) {
             return Promise.reject("Email already in use");
         } else {
             return bcrypt.hash(req.body.password, SALT_ROUNDS) //Do the password hashing
         }
     }).then(hash => {
-        return User.create({ email: req.body.email, password: String(hash) }) //Create a new user
+        return db.user.create({ email: req.body.email, password: String(hash) }) //Create a new user
     }).then(() => {
         var payload = { email: req.body.email };
         var token = jwt.sign(payload, global.jwtOptions.secretOrKey); //Create JWT token with email claim
@@ -61,7 +61,7 @@ router.post('/login', function (req, res) {
     if (validator.fails()) {
         res.status(400).json({ error: true, message: validator.errors["errors"] });
     }
-    User.findOne({ email: req.body.email }).then(user => {
+    db.user.findOne({where: { email: req.body.email }}).then(user => {
         if (!user) {
             return Promise.reject("Invalid username or password");
         } else {

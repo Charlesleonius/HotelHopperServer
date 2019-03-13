@@ -6,8 +6,12 @@ pipeline {
     stage('Install Dependencies') {
       steps {
         nodejs('HotelHopper') {
-          sh '''npm install
-npm run test-jenkins'''
+          sh '''
+                npm install
+                mkdir ./migrations
+                node_modules/.bin/sequelize db:migrate --url 'postgresql://localhost:5432/hotel_hopper'
+                npm run test-jenkins
+            '''
         }
 
       }
@@ -21,6 +25,6 @@ npm run test-jenkins'''
   }
   environment {
     HOME = '.'
-    MONGO_URI = 'mongodb://localhost:27017/hotelHopperDB'
+    PSQL_URI = 'postgresql://localhost:5432/hotel_hopper'
   }
 }
