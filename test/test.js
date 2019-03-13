@@ -4,7 +4,7 @@ var chaiHttp = require('chai-http');
 chai.use(chaiHttp);
 let server = require('../app');
 let should = chai.should();
-let User = require('../models/auth/user.js').User
+let db = require('../models/index.js');
 
 
 /*
@@ -21,14 +21,15 @@ describe('Array', function() {
 
 describe('Login with email and password', () => {
     before(function(done) {
-        User.deleteOne({ email: 'test@test.com' }).then(() => {
-            return User.create({ 
+        db.user.destroy({ where: { email: 'test@test.com' }}).then(() => {
+            return db.user.create({ 
                 email: 'test@test.com', 
                 password: "$2b$10$IDmDD/VYelBhCsmBj2vALu6j7W7KuDsYcTL/58yyEkQKOFhM2m3.u" 
             });
         }).then(() => {
             done();
         }).catch(err => {
+            console.log(err);
             done(err);
         });
     });
@@ -50,7 +51,7 @@ describe('Login with email and password', () => {
     });
 
     after(function(done) {
-        User.deleteOne({ email: 'test@test.com' }).then(() => {
+        db.user.destroy({ where: { email: 'test@test.com' }}).then(() => {
             done();
         }).catch(err => {
             done(err);
@@ -63,7 +64,7 @@ describe('Login with email and password', () => {
 describe('Signup with email and password', () => {
 
     before(function(done) {
-        User.deleteOne({ email: 'test@test.com' }).then(() => {
+        db.user.destroy({where: { email: 'test@test.com' }}).then(() => {
             done();
         }).catch(err => {
             done(err);
@@ -87,7 +88,7 @@ describe('Signup with email and password', () => {
     });
 
     after(function(done) {
-        User.deleteOne({ email: 'test@test.com' }).then(() => {
+        db.user.destroy({ where: { email: 'test@test.com' }}).then(() => {
             done();
         }).catch(err => {
             done(err);
@@ -107,7 +108,7 @@ describe('Protected endpoints should not be accessed without a valid JWT', () =>
     });
 
     after(function(done) {
-        User.deleteOne({ email: 'test@test.com' }).then(() => {
+        db.user.destroy({ where: { email: 'test@test.com' }}).then(() => {
             done();
         }).catch(err => {
             done(err);
