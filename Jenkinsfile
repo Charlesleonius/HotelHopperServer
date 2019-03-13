@@ -23,6 +23,6 @@ pipeline {
   }
   environment {
     HOME = '.'
-    MONGO_URI = 'mongodb://localhost:27017/hotelHopperDB'
+    PSQL_URI = 'postgresql://localhost:5432/hotel_hopper'
   }
 }
