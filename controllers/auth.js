@@ -1,10 +1,14 @@
 var express = require('express');
 var router = express.Router();
 var passport = require("passport");
+var crypto = require('crypto');
+var flash = require('express-flash');
 let Validator = require('validatorjs');
 let bcrypt = require('bcryptjs');
 let jwt = require('jsonwebtoken');
 let db = require('../models/index.js');
+let nodemailer = require('nodemailer');
+let async = require('async');
 
 //Recommended rounds for password hashing
 const SALT_ROUNDS = 10;
@@ -90,59 +94,115 @@ router.post('/login', function (req, res) {
 router.post('/forgotPassword', function(req, res) {
     async.waterfall([ // ensure each function is executed one after another
         function(done) {
-            db.user.findOne({ where: { email: req.body.email }}).exec(function(err, user) {
-                if (user) {
-                    done(err, user)
-                } else {
-                    done("User not found")
-                }
-            });
-        },
-
-        function(user, done) {
             // create the random token
             crypto.randomBytes(20, function(err, buffer) {
-                var token = buffer.toString('hex');
-                done(err, user, token);
+                let token = buffer.toString('hex');
+                done(err, token);
             });
         },
+        function(token, done) {
+            db.user.findOne({ where: { email: req.body.email }}, function(user, err) {
+                if (!user) {
+                    req.flash('Error', 'User not found');
+                    return res.redirect('/forgotPassword')
+                }
 
-        function(user, token, done) {
-            db.user.findByIdAndUpdate({ _id: user._id }, { reset_password_token: token, reset_password_expires: Date.now() + 86400000 }, { upsert: true, new: true }).exec(function(err, new_user) {
-                done(err, token, new_user);
+                user.resetPasswordToken = token;
+
+                user.save(function(err) {
+                    done(err, token, user);
+                });
             });
         },
+        function(token, done) {
+            // Maybe we should define the variable user at the beginning so it's easy to use
+            let user = db.user.findOne({ where: { email: req.body.email }});
 
-        function(token, user, done) {
-            var data = {
-              to: db.user.email,
-              from: email,
-              template: 'forgot-password-email',
-              subject: 'Reset Your Passwork from Hotel Hopper',
-              context: {
-                url: 'http://localhost:3000/auth/reset_password?token=' + token,
-                name: db.user.fullName.split(' ')[0]
-              }
+            let smtpTransport = nodemailer.createTransport({
+                service: process.env.MAIL_SERVICE_NAME || 'Gmail',
+                host: process.env.MAIL_HOST,
+                port: process.env.MAIN_PORT,
+                auth: {
+                    user: process.env.MAIL_USER,
+                    pass: process.env.MAIL_PASS
+                }
+            });
+            let mailOption = {
+                to: user.email,
+                from: process.env.FROM_EMAIL,
+                subject: 'Reset Your Password from Hotel Hopper',
+                text: 'http://' + req.headers.host + '/resetPassword/' + token + '\n'
             };
-
-            smtpTransport.sendMail(data, function(err) {
+            smtpTransport.sendMail(mailOption, function(err) {
                 if (!err) {
-                  return res.json({ message: "Check your email for further instructions" });
+                    req.flash('info', 'An e-mail has been sent to ' + user.email + ' with a link to change the password.');
                 } else {
-                  return done(err);
+                    done(err, 'done!');
                 }
             });
         }
-    ], function(err) {
-        return res.status(422).json({ message: err });
-    })
+    ], function (err) {
+        if (err) return next(err);
+        res.redirect('/forgotPassword');
+    });
 });
 
 /*
 * Reset the password
 */
-router.post('/resetPassword', function(req, res) {
-    
+router.post('/resetPassword/:token', function(req, res) {
+    async.waterfall([
+        function(done) {
+            db.user.findOne({ where: { resetPasswordToken: req.params.token }}, function(err, user) {
+                if (!user) {
+                    req.flash('error', 'Password reset token is invalid or has expired.');
+                    return res.redirect('back');
+                }
+
+                user.password = req.body.password;
+                user.resetPasswordToken = null; // reset the token
+
+                user.save(function(err) {
+                    req.logIn(user, function(err) {
+                        done(err, user);
+                    }); 
+                });
+            });
+        },
+        function(done) {
+            let user = db.user.findOne({ where: { email: req.body.email }});
+            let smtpTransport = nodemailer.createTransport({
+                service: process.env.MAIL_SERVICE_NAME,
+                host: process.env.MAIL_HOST,
+                port: process.env.MAIN_PORT,
+                secure: true,
+                auth: {
+                    user: process.env.MAIL_USER,
+                    pass: process.env.MAIL_PASS
+                }
+            });
+            let mailOption = {
+                to: user.email,
+                from: process.env.FROM_EMAIL,
+                subject: 'Congratulations! Your password has been reset.',
+                text: 'This is a confirmation that the password for your account ' + user.email + ' has just been changed.\n'
+            };
+            smtpTransport.sendMail(mailOption, function(err) {
+                req.flash('success', 'Your password has been reset.');
+                done(err);
+            });
+        }
+    ], function(err) {
+        res.redirect('/');
+    });
+});
+
+/*
+* User logout
+*/
+router.get('/logout', function(req, res) {
+    req.logOut();
+    res.redirect('/');
 });
 
 /*
