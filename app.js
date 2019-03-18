@@ -42,7 +42,9 @@ global.mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true }).then(d
 });
 
 var auth = require('./controllers/auth.js');
+var popDest = require('./controllers/popular-destinations.js');
 app.use('/auth', auth);
+app.use('/popular-destinations', popDest);
 
 app.get('/', (req, res) => res.send('Hello World!'))
 
