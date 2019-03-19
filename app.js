@@ -5,7 +5,6 @@ var express = require("express");
 var bodyParser = require("body-parser");
 let passport = require("passport");
 var passportJWT = require("passport-jwt");
-global.mongoose = require("mongoose");
 let User = require('./models/auth/user.js').User
 
 //JWT Helpers
@@ -34,12 +33,6 @@ app.use(passport.initialize());
 app.use(bodyParser.json({
     extended: true
 }));
-
-global.mongoose.connect(process.env.MONGO_URI, { useNewUrlParser: true }).then(db => {
-    app.listen(port, () => console.log(`Example app listening on port ${port}!`))
-}).catch(err => {
-    console.log( "Could not connect to DB");
-});
 
 var auth = require('./controllers/auth.js');
 var popDest = require('./controllers/popular-destinations.js');
