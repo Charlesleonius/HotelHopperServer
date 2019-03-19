@@ -5,6 +5,7 @@ var path = require("path");
 var Sequelize = require("sequelize");
 let sequelize = new Sequelize(process.env.PSQL_URI, {
     dialect: 'postgres',
+    operatorsAliases: false,
     logging: false,
     define: {
         freezeTableName: true,
