@@ -1,6 +1,5 @@
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
 const multer = require('multer');
 const AWS = require('aws-sdk');
 
@@ -21,10 +20,10 @@ const s3Client = new AWS.S3({
  * 
  */
 router.get('/', (req, res) => {
-    s3Client.listObjects({Bucket : process.env.Bucket}, (err, data) => {
+    s3Client.listObjects({Bucket : process.env.BUCKET}, (err, data) => {
         if (err) console.log(err, err.stack); // an error occurred
         else {
-            var cityAndLink = {};
+            var destinations = [];
             const dlLink = "https://s3.amazonaws.com/hotel-hopper-bucket1/";
             const contents = data.Contents;
             const length = data.Contents.length;
@@ -33,9 +32,13 @@ router.get('/', (req, res) => {
                 city = city.replace('-', ' ');
                 city = city.replace('.png', '');
                 city = city.replace(/\b\w/g, l => l.toUpperCase());
-                cityAndLink[city] = dlLink + contents[i].Key;
+                destination = {
+                    city: city,
+                    url: dlLink + contents[i].Key
+                };
+                destinations.push(destination);
             }
-            res.send(cityAndLink);
+            res.send(destinations);
             return;
         }
     });
@@ -46,7 +49,7 @@ router.get('/', (req, res) => {
  */
 router.post('/upload', upload.single('file'), (req, res) => {
     const uploadParams = {
-        Bucket: process.env.Bucket,
+        Bucket: process.env.BUCKET,
         Key: req.file.originalname, // pass key
         Body: req.file.buffer // pass file body
     };
@@ -64,14 +67,11 @@ router.post('/upload', upload.single('file'), (req, res) => {
  */
 router.get('/:cityName', (req, res) => {
     const city = req.params.cityName;
-
     // TODO: validation
-
     const getParams = {
-        Bucket: process.env.Bucket,
+        Bucket: process.env.BUCKET,
         Key: city
     }
-
     var fileStream = s3Client.getObject(getParams).createReadStream();
     if (fileStream) {
         fileStream.pipe(res);
