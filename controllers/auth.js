@@ -2,13 +2,11 @@ var express = require('express');
 var router = express.Router();
 var passport = require("passport");
 var crypto = require('crypto');
-var flash = require('express-flash');
 let Validator = require('validatorjs');
 let bcrypt = require('bcryptjs');
 let jwt = require('jsonwebtoken');
 let db = require('../models/index.js');
 let nodemailer = require('nodemailer');
-let async = require('async');
 
 //Recommended rounds for password hashing
 const SALT_ROUNDS = 10;
@@ -89,116 +87,128 @@ router.post('/login', function (req, res) {
 });
 
 /*
-* Handle when the registered user forgets the password and send the password reset link to the registered email
+* Create a token and send the unique password-reset-link to the registered user
 */
-router.post('/forgotPassword', function(req, res) {
-    async.waterfall([ // ensure each function is executed one after another
-        function(done) {
-            // create the random token
-            crypto.randomBytes(20, function(err, buffer) {
-                let token = buffer.toString('hex');
-                done(err, token);
+router.post('/forgotPassword', function(req, res, next) {
+    if (req.body.email === '') {
+        return res.status(400).json({ 
+            error: true, 
+            message: 'email required'
+        });
+    }
+    db.user.findOne({ where: { email: req.body.email } }).then(user => {
+        if (!user) {
+            res.status(404).json({ 
+                error: true, 
+                message: 'User not found; invalid user email' 
             });
-        },
-        function(token, done) {
-            db.user.findOne({ where: { email: req.body.email }}, function(user, err) {
-                if (!user) {
-                    req.flash('Error', 'User not found');
-                    return res.redirect('/forgotPassword')
-                }
-
-                user.resetPasswordToken = token;
-
-                user.save(function(err) {
-                    done(err, token, user);
-                });
+        } else {
+            const token = crypto.randomBytes(20).toString('hex');
+            user.update({ 
+                reset_password_token: token,
+                password_token_expires: Date.now() + 180000 // 30 mins expiration
             });
-        },
-        function(token, done) {
-            // Maybe we should define the variable user at the beginning so it's easy to use
-            let user = db.user.findOne({ where: { email: req.body.email }});
-
-            let smtpTransport = nodemailer.createTransport({
-                service: process.env.MAIL_SERVICE_NAME || 'Gmail',
-                host: process.env.MAIL_HOST,
-                port: process.env.MAIN_PORT,
+            const transporter = nodemailer.createTransport({
+                service: 'Gmail', // Assume we will be using gmail here; subject to change
                 auth: {
-                    user: process.env.MAIL_USER,
-                    pass: process.env.MAIL_PASS
+                    user: `${process.env.EMAIL_ADDRESS}`,
+                    pass: `${process.env.EMAIL_PASSWORD}`
                 }
             });
-            let mailOption = {
-                to: user.email,
-                from: process.env.FROM_EMAIL,
-                subject: 'Reset Your Password from Hotel Hopper',
-                text: 'http://' + req.headers.host + '/resetPassword/' + token + '\n'
+            const mailOption = {
+                from: `demo@hotelhopper.com`, // placeholder email; subject to change
+                to: `${user.email}`,
+                subject: `Reset Your Password from Hotel Hopper!`,
+                text: 
+                    `You are receiving this email because you have requested to reset the password for your account.\n\n` +
+                    `Please go to the following link to complete the password reset process within an hour:\n` +
+                    `http://localhost:3000/resetPassword/${token}\n\n`
             };
-            smtpTransport.sendMail(mailOption, function(err) {
-                if (!err) {
-                    req.flash('info', 'An e-mail has been sent to ' + user.email + ' with a link to change the password.');
+            console.log('Sending the email...');
+            transporter.sendMail(mailOption, function(err, response) {
+                if (err) {
+                    console.log('error: ', err);
                 } else {
-                    done(err, 'done!');
+                    console.log('res: ', response);
+                    res.status(200).json({
+                        err: false,
+                        message: 'email sent'
+                    });
                 }
             });
+            return res.status(200).json({ 
+                error: false, 
+                email: user.email,
+                resetPasswordToken: token 
+            });
         }
-    ], function (err) {
-        if (err) return next(err);
-        res.redirect('/forgotPassword');
     });
 });
 
 /*
-* Reset the password
+* Get: The unique reset-password-link
 */
-router.post('/resetPassword/:token', function(req, res) {
-    async.waterfall([
-        function(done) {
-            db.user.findOne({ where: { resetPasswordToken: req.params.token }}, function(err, user) {
-                if (!user) {
-                    req.flash('error', 'Password reset token is invalid or has expired.');
-                    return res.redirect('back');
-                }
-
-                user.password = req.body.password;
-                user.resetPasswordToken = null; // reset the token
-
-                user.save(function(err) {
-                    req.logIn(user, function(err) {
-                        done(err, user);
-                    }); 
-                });
+router.get('/resetPassword/:token', function(req, res, next) {
+    db.user.findOne({ 
+        where: { 
+            reset_password_token: req.params.token,
+            password_token_expires: { $gt: Date.now() }
+        }}).then(user => {
+        if (!user) {
+            console.log('Password reset link is invalid or has expired');
+            return res.status(400).json({
+                err: true,
+                message: 'password reset link is invalid or has expired'
             });
-        },
-        function(done) {
-            let user = db.user.findOne({ where: { email: req.body.email }});
-            let smtpTransport = nodemailer.createTransport({
-                service: process.env.MAIL_SERVICE_NAME,
-                host: process.env.MAIL_HOST,
-                port: process.env.MAIN_PORT,
-                secure: true,
-                auth: {
-                    user: process.env.MAIL_USER,
-                    pass: process.env.MAIL_PASS
-                }
-            });
-            let mailOption = {
-                to: user.email,
-                from: process.env.FROM_EMAIL,
-                subject: 'Congratulations! Your password has been reset.',
-                text: 'This is a confirmation that the password for your account ' + user.email + ' has just been changed.\n'
-            };
-            smtpTransport.sendMail(mailOption, function(err) {
-                req.flash('success', 'Your password has been reset.');
-                done(err);
+        } else {
+            console.log('password reset link is working');
+            res.status(200).json({
+                err: false,
+                email: user.email,
+                message: 'password reset link is working',
+                token: user.reset_password_token
             });
         }
-    ], function(err) {
-        res.redirect('/');
+    })
+});
+
+/*
+* Put: Reset the password
+*/
+router.put('/resetPassword', function(req, res, next) {
+    db.user.findOne({ where: { email: req.body.email } }).then(user => {
+        if (!user) {
+            console.log('Invalid user email');
+            res.status(404).json({
+                err: true,
+                message: 'user not existed in the database'
+            })
+        } else {
+            console.log('Confirm: user is in the database');
+            bcrypt.hash(req.body.password, SALT_ROUNDS).then(hashedPassword => {
+                user.update({
+                    password: hashedPassword,
+                    reset_password_token: null,
+                    password_token_expires: null
+                });
+            })
+            .then(() => {
+                console.log('Password is successfully updated!');
+                res.status(200).json({
+                    err: false,
+                    id: user.user_id,
+                    email: user.email,
+                    password: user.password,
+                    resetPasswordToken: user.reset_password_token,
+                    password_token_expires: user.password_token_expires
+                })
+            });
+        }
     });
 });
 
 /*
-* User logout
+* User logout and redirect to the home page
 */
 router.get('/logout', function(req, res) {
     req.logOut();

@@ -7,9 +7,10 @@ module.exports = function(sequelize, DataTypes) {
             primaryKey: true,
             autoIncrement: true,
         },
-        reset_password_token: Sequelize.STRING,
         email: Sequelize.STRING,
         password: Sequelize.STRING,
+        reset_password_token: Sequelize.STRING,
+        password_token_expires: Sequelize.BIGINT
     });
     return User;
 };
