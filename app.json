@@ -1,0 +1,29 @@
+{
+  "addons": [
+    "mongolab"
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "description": "Allows each PR to have a working web app to test",
+  "env": {
+    "MONGO_URI": {
+      "required": true
+    },
+    "MONGODB_URI": {
+      "required": true
+    },
+    "PORT": "3000"
+  },
+  "formation": {
+    "web": {
+      "quantity": 1
+    }
+  },
+  "name": "Hotel Hopper Server",
+  "scripts": {
+  },
+  "stack": "heroku-18"
+}
