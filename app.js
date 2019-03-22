@@ -45,13 +45,16 @@ app.use(bodyParser.json({
     extended: true
 }));
 
-//Start the application if a database connection is successfull
+//Start the application if a database connection is successfull and the schema is sychronized
 db.sequelize.authenticate().then(() => {
-    app.listen(PORT);
+    return db.sequelize.sync()
+}).then(() => {
+    return app.listen(PORT);
+}).then(() => {
+    console.log("Database synchronized and server listening on port: " + PORT)
 }).catch(err => {
     throw new Error('Database connection failed with error: ' + err);
 });
-
 /*
 * Define routes
 * Controllers should have their own route prefix. 
