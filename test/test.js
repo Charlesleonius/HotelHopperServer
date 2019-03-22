@@ -119,7 +119,10 @@ describe('Protected endpoints should not be accessed without a valid JWT', () =>
 
 describe('Popular destinations', () => {
     it('return four cities and a link to download picture.', () => {
-        var result = chai.get('/popular-destination');
-        assert(result != nil);
+        chai.request(server)
+            .get('/popular-destinations')
+            .end(function (err, res) {
+                res.should.have.status(200);
+        });
     });
 }); 
