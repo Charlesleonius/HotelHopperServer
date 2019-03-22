@@ -1,3 +1,4 @@
+
 //Imports
 require('dotenv').config()
 let express = require("express");
@@ -14,6 +15,7 @@ let db = require('./models/index.js');
 
 //Controllers
 var auth = require('./controllers/auth.js');
+var popDest = require('./controllers/popular-destinations.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -58,6 +60,7 @@ db.sequelize.authenticate().then(() => {
 * then set the controller as middleware with `app.use('/<controller name>', <imported controller>)`
 */
 app.use('/auth', auth);
+app.use('/popular-destinations', popDest);
 app.get('/', (req, res) => res.send('Hello World!'));
 
 module.exports = app
