@@ -22,7 +22,7 @@ router.post('/register', function(req, res) {
         password: req.body.password
       }, {
         email: 'required|email',
-        password: 'required|min:8'
+        password: 'required|regex:/((?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,20})/'
     });
     if (validator.fails()) {
         res.status(400).json({ error: true, message: validator.errors["errors"] });
@@ -91,7 +91,7 @@ router.post('/login', function (req, res) {
 /*
 * Create a token and send the unique password-reset-link to the registered user
 */
-router.post('/forgotPassword', function(req, res, next) {
+router.post('/forgot_password', function(req, res, next) {
     let validator = new Validator({
         email: req.body.email,
       }, {
@@ -109,7 +109,7 @@ router.post('/forgotPassword', function(req, res, next) {
         } else {
             const token = crypto.randomBytes(20).toString('hex');
             PasswordResetToken.destroy({ where: { 'user_id': user.id }}); //Asynchronously destroy old tokens
-            await PasswordResetToken.create({ token: token, expires: moment().add(1, 'days'), user_id: user.user_id });
+            await PasswordResetToken.create({ token: token, expires: moment().utc().add(1, 'days'), user_id: user.user_id });
             const transporter = nodemailer.createTransport({
                 service: 'Gmail', // Assume we will be using gmail here; subject to change
                 auth: {
@@ -117,24 +117,30 @@ router.post('/forgotPassword', function(req, res, next) {
                     pass: `${process.env.EMAIL_PASSWORD}`
                 }
             });
-            const mailOption = {
-                from: `support@hotelhopper.com`,
-                to: `${user.email}`,
-                subject: `Reset Your Password from Hotel Hopper!`,
-                text: 
-                    `You are receiving this email because you have requested to reset the password for your account.\n\n` +
-                    `Please go to the following link to complete the password reset process within an hour:\n` +
-                     process.env.APP_URL + `/resetPassword/${token}\n\n` + 
-                    `If you believe you've received this email in error, please contact support and delete this email.`
-            };
-            transporter.sendMail(mailOption, function(err, response) {
-                if (err) { console.log('error: ', err); }
-            });
-            return res.status(200).json({ 
-                error: false, 
-                email: user.email,
-                resetPasswordToken: token 
-            });
+            if (process.env.NODE_ENV != "test") { // Send email in staging or production environments
+                const mailOption = {
+                    from: `hotelhopperhelp@gmail.com`,
+                    to: `${user.email}`,
+                    subject: `Reset Your Password from Hotel Hopper!`,
+                    text: 
+                        `You are receiving this email because you have requested to reset the password for your account.\n\n` +
+                        `Please go to the following link to complete the password reset process within an hour:\n` +
+                         process.env.APP_URL + `/reset_password/${token}\n\n` + 
+                        `If you believe you've received this email in error, please contact support and delete this email.`
+                };
+                transporter.sendMail(mailOption, function(err, response) {
+                    if (err) { console.log('error: ', err); }
+                });
+                return res.status(200).json({ 
+                    error: false, 
+                    message: "We've sent a link to your email to reset your password. It expires in 24 hours."
+                });
+            } else { // For testing purposes just return the token rather than send an email
+                return res.status(200).json({ 
+                    error: false, 
+                    token: token
+                });
+            }
         }
     });
 });
@@ -142,65 +148,86 @@ router.post('/forgotPassword', function(req, res, next) {
 /*
 * Get: The unique reset-password-link
 */
-router.get('/resetPassword/:token', function(req, res, next) {
-    PasswordResetToken.findOne({
+router.get('/reset_password/:token', async function(req, res, next) {
+    let passwordResetToken = await PasswordResetToken.findOne({
         where: {
-            "token": req.params.token, 
-            "expires": { $gte: Date.now() }
+            "token": req.params.token,
+            "expires": { $gte: moment().format() }
         }
-    }).then(passwordResetToken => {
-        if (passwordResetToken) {
-            return passwordResetToken.getUser()
-        } else {
-            PasswordResetToken.destroy({ where: { 'user_id': user.id }}); //Asynchronously destroy old tokens
-            res.status(400).json({
-                error: true,
-                message: "Your password reset token has expired. Please request a new one."
-            });
-        }
-    }).then(user => {
+    })
+    if (passwordResetToken) { // If the password reset token is valid just return it
         res.status(200).json({
             error: false,
-            token: user.reset_password_token
+            token: passwordResetToken.token
         });
-    }).catch(err => {
-        console.log(err);
-        res.status(500).json({
+    } else { // Otherwise return an error
+        res.status(400).json({
             error: true,
-            message: err,
+            message: "Your password reset token has expired or isn't valid. Please request a new one."
         });
-    });
+        let expired_token = await PasswordResetToken.findOne({ where: { "token": req.params.token }});
+        let user = await expired_token.getUser();
+        PasswordResetToken.destroy({ where: { 'user_id': user.user_id }}); //Asynchronously destroy old tokens
+    }
 });
 
 /*
 * Put: Reset the password
 */
-router.put('/resetPassword', function(req, res, next) {
-    User.findOne({ where: { email: req.body.email } }).then(user => {
-        if (!user) {
-            res.status(404).json({
-                err: true,
-                message: 'user not existed in the database'
-            })
-        } else {
-            bcrypt.hash(req.body.password, SALT_ROUNDS).then(hashedPassword => {
-                user.update({
-                    password: hashedPassword,
-                    reset_password_token: null,
-                    password_token_expires: null
-                });
-            }).then(() => {
-                res.status(200).json({
-                    err: false,
-                    id: user.user_id,
-                    email: user.email,
-                    password: user.password,
-                    resetPasswordToken: user.reset_password_token,
-                    password_token_expires: user.password_token_expires
-                })
-            });
-        }
+router.put('/reset_password', async function(req, res, next) {
+    let validator = new Validator({
+        email: req.body.email,
+        password: req.body.password,
+        confirm_password: req.body.confirm_password,
+        token: req.body.token
+      }, {
+        email: 'required|email',
+        password: 'required|regex:/((?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,20})/',
+        confirm_password: 'required',
+        token: 'required'
     });
+    if (validator.fails()) {
+        return res.status(400).json({ error: true, message: validator.errors["errors"] });
+    } else if (req.body.confirm_password != req.body.password) {
+        return res.status(400).json({ error: true, message: "Password and password confirmation don't match. For your security please resubmit with matching passwords." });
+    }
+    let passwordResetToken = await PasswordResetToken.findOne({
+        where: {
+            "token": req.body.token,
+            "expires": { $gte: moment().format() }
+        }
+    })
+    if (passwordResetToken != null) {
+        let user = await passwordResetToken.getUser();
+        if (!user) {
+            res.status(400).json({
+                err: true,
+                message: 'This user no longer exists or the email you sent was invalid.'
+            })
+        } else {    
+            let hashedPassword = await bcrypt.hash(req.body.password, SALT_ROUNDS)
+            let updated = await user.update({ password: hashedPassword });
+            if (updated) {
+                PasswordResetToken.destroy({ where: { 'token': req.body.token }});
+                res.status(200).json({
+                    error: false,
+                    message: "Your password has been succesfully updated. Please log in to get a new token."
+                })
+            } else {
+                res.status(500).json({ error: true, message: "We couldn't update your password. Please try again later." })
+            }
+        }
+    } else {
+        res.status(400).json({
+            error: true,
+            message: "Your password reset token has expired or isn't valid. Please request a new one."
+        });
+        let expired_token = await PasswordResetToken.findOne({ where: { "token": req.params.token }});
+        if (expired_token) { //Asynchronously destroy old tokens
+            let user = await expired_token.getUser();
+            PasswordResetToken.destroy({ where: { 'user_id': user.user_id }});
+        }
+    }
 });
 
 /*

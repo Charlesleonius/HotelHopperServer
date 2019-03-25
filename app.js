@@ -5,6 +5,7 @@ let express = require("express");
 let bodyParser = require("body-parser");
 let passport = require("passport");
 let passportJWT = require("passport-jwt");
+let cors = require('cors')
 
 /*
 * The db object contains a reference to the database connection pool as well as all of the models
@@ -40,6 +41,7 @@ var strategy = new JwtStrategy(jwtOptions, function(jwt_payload, next) {
 passport.use(strategy);
 
 //Load middleware
+app.use(cors())
 app.use(passport.initialize());
 app.use(bodyParser.json({
     extended: true

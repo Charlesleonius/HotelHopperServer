@@ -3,13 +3,14 @@
 var Sequelize = require("sequelize");
 let sequelize = new Sequelize(process.env.PSQL_URI, {
     dialect: 'postgres',
-    operatorsAliases: false,
-    logging: false,
+    operatorsAliases: true,
+    logging: true,
     define: {
         freezeTableName: true,
         charset: 'utf8',
         dialectOptions: {
-          collate: 'utf8_general_ci'    
+            useUTC: false,
+            collate: 'utf8_general_ci'    
         },
         timestamps: true,
         updatedAt: 'updated_at',
