@@ -5,8 +5,10 @@ var crypto = require('crypto');
 let Validator = require('validatorjs');
 let bcrypt = require('bcryptjs');
 let jwt = require('jsonwebtoken');
-let db = require('../models/index.js');
+let moment = require('moment');
 let nodemailer = require('nodemailer');
+require('../models/index.js').PasswordResetToken;
+require('../models/index.js').User;
 
 //Recommended rounds for password hashing
 const SALT_ROUNDS = 10;
@@ -25,14 +27,14 @@ router.post('/register', function(req, res) {
     if (validator.fails()) {
         res.status(400).json({ error: true, message: validator.errors["errors"] });
     }
-    db.user.findOne({ where: { email: req.body.email }}).then(user => {
+    User.findOne({ where: { email: req.body.email }}).then(user => {
         if (user) {
             return Promise.reject("Email already in use");
         } else {
             return bcrypt.hash(req.body.password, SALT_ROUNDS) //Do the password hashing
         }
     }).then(hash => {
-        return db.user.create({ email: req.body.email, password: String(hash) }) //Create a new user
+        return User.create({ email: req.body.email, password: String(hash) }) //Create a new user
     }).then(() => {
         var payload = { email: req.body.email };
         var token = jwt.sign(payload, global.jwtOptions.secretOrKey); //Create JWT token with email claim
@@ -63,7 +65,7 @@ router.post('/login', function (req, res) {
     if (validator.fails()) {
         res.status(400).json({ error: true, message: validator.errors["errors"] });
     }
-    db.user.findOne({where: { email: req.body.email }}).then(user => {
+    User.findOne({where: { email: req.body.email }}).then(user => {
         if (!user) {
             return Promise.reject("Invalid username or password");
         } else {
@@ -90,24 +92,24 @@ router.post('/login', function (req, res) {
 * Create a token and send the unique password-reset-link to the registered user
 */
 router.post('/forgotPassword', function(req, res, next) {
-    if (req.body.email === '') {
-        return res.status(400).json({ 
-            error: true, 
-            message: 'email required'
-        });
+    let validator = new Validator({
+        email: req.body.email,
+      }, {
+        email: 'required|email'
+    });
+    if (validator.fails()) {
+        res.status(400).json({ error: true, message: validator.errors["errors"] });
     }
-    db.user.findOne({ where: { email: req.body.email } }).then(user => {
+    User.findOne({ where: { email: req.body.email } }).then(async user => {
         if (!user) {
-            res.status(404).json({ 
+            res.status(400).json({ 
                 error: true, 
-                message: 'User not found; invalid user email' 
+                message: 'We couldn\'t find a user with that email. Please try again.'
             });
         } else {
             const token = crypto.randomBytes(20).toString('hex');
-            user.update({ 
-                reset_password_token: token,
-                password_token_expires: Date.now() + 180000 // 30 mins expiration
-            });
+            PasswordResetToken.destroy({ where: { 'user_id': user.id }}); //Asynchronously destroy old tokens
+            await PasswordResetToken.create({ token: token, expires: moment().add(1, 'days'), user_id: user.user_id });
             const transporter = nodemailer.createTransport({
                 service: 'Gmail', // Assume we will be using gmail here; subject to change
                 auth: {
@@ -116,25 +118,17 @@ router.post('/forgotPassword', function(req, res, next) {
                 }
             });
             const mailOption = {
-                from: `demo@hotelhopper.com`, // placeholder email; subject to change
+                from: `support@hotelhopper.com`,
                 to: `${user.email}`,
                 subject: `Reset Your Password from Hotel Hopper!`,
                 text: 
                     `You are receiving this email because you have requested to reset the password for your account.\n\n` +
                     `Please go to the following link to complete the password reset process within an hour:\n` +
-                    `http://localhost:3000/resetPassword/${token}\n\n`
+                     process.env.APP_URL + `/resetPassword/${token}\n\n` + 
+                    `If you believe you've received this email in error, please contact support and delete this email.`
             };
-            console.log('Sending the email...');
             transporter.sendMail(mailOption, function(err, response) {
-                if (err) {
-                    console.log('error: ', err);
-                } else {
-                    console.log('res: ', response);
-                    res.status(200).json({
-                        err: false,
-                        message: 'email sent'
-                    });
-                }
+                if (err) { console.log('error: ', err); }
             });
             return res.status(200).json({ 
                 error: false, 
@@ -149,51 +143,53 @@ router.post('/forgotPassword', function(req, res, next) {
 * Get: The unique reset-password-link
 */
 router.get('/resetPassword/:token', function(req, res, next) {
-    db.user.findOne({ 
-        where: { 
-            reset_password_token: req.params.token,
-            password_token_expires: { $gt: Date.now() }
-        }}).then(user => {
-        if (!user) {
-            console.log('Password reset link is invalid or has expired');
-            return res.status(400).json({
-                err: true,
-                message: 'password reset link is invalid or has expired'
-            });
+    PasswordResetToken.findOne({
+        where: {
+            "token": req.params.token, 
+            "expires": { $gte: Date.now() }
+        }
+    }).then(passwordResetToken => {
+        if (passwordResetToken) {
+            return passwordResetToken.getUser()
         } else {
-            console.log('password reset link is working');
-            res.status(200).json({
-                err: false,
-                email: user.email,
-                message: 'password reset link is working',
-                token: user.reset_password_token
+            PasswordResetToken.destroy({ where: { 'user_id': user.id }}); //Asynchronously destroy old tokens
+            res.status(400).json({
+                error: true,
+                message: "Your password reset token has expired. Please request a new one."
             });
         }
-    })
+    }).then(user => {
+        res.status(200).json({
+            error: false,
+            token: user.reset_password_token
+        });
+    }).catch(err => {
+        console.log(err);
+        res.status(500).json({
+            error: true,
+            message: err,
+        });
+    });
 });
 
 /*
 * Put: Reset the password
 */
 router.put('/resetPassword', function(req, res, next) {
-    db.user.findOne({ where: { email: req.body.email } }).then(user => {
+    User.findOne({ where: { email: req.body.email } }).then(user => {
         if (!user) {
-            console.log('Invalid user email');
             res.status(404).json({
                 err: true,
                 message: 'user not existed in the database'
             })
         } else {
-            console.log('Confirm: user is in the database');
             bcrypt.hash(req.body.password, SALT_ROUNDS).then(hashedPassword => {
                 user.update({
                     password: hashedPassword,
                     reset_password_token: null,
                     password_token_expires: null
                 });
-            })
-            .then(() => {
-                console.log('Password is successfully updated!');
+            }).then(() => {
                 res.status(200).json({
                     err: false,
                     id: user.user_id,
@@ -205,14 +201,6 @@ router.put('/resetPassword', function(req, res, next) {
             });
         }
     });
-});
-
-/*
-* User logout and redirect to the home page
-*/
-router.get('/logout', function(req, res) {
-    req.logOut();
-    res.redirect('/');
 });
 
 /*
