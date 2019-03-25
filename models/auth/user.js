@@ -1,7 +1,7 @@
 let Sequelize = require('sequelize');
 
 module.exports = function(sequelize, DataTypes) {
-    const User = sequelize.define('user', {
+    return User = sequelize.define('user', {
         user_id: {
             type: Sequelize.INTEGER,
             primaryKey: true,
@@ -10,5 +10,4 @@ module.exports = function(sequelize, DataTypes) {
         email: Sequelize.STRING,
         password: Sequelize.STRING
     });
-    return User;
 };
