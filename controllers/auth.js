@@ -176,12 +176,10 @@ router.get('/reset_password/:token', async function(req, res, next) {
 */
 router.put('/reset_password', async function(req, res, next) {
     let validator = new Validator({
-        email: req.body.email,
         password: req.body.password,
         confirm_password: req.body.confirm_password,
         token: req.body.token
       }, {
-        email: 'required|email',
         password: 'required|regex:/((?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,20})/',
         confirm_password: 'required',
         token: 'required'
