@@ -18,9 +18,13 @@ const SALT_ROUNDS = 10;
 */
 router.post('/register', function(req, res) {
     let validator = new Validator({
+        first_name: req.body.first_name,
+        last_name: req.body.last_name,
         email: req.body.email,
         password: req.body.password
       }, {
+        first_name: 'required|string',
+        last_name: 'required|string',
         email: 'required|email',
         password: 'required|regex:/((?=.*[0-9])(?=.*[a-z])(?=.*[A-Z]).{8,20})/'
     });
@@ -34,13 +38,18 @@ router.post('/register', function(req, res) {
             return bcrypt.hash(req.body.password, SALT_ROUNDS) //Do the password hashing
         }
     }).then(hash => {
-        return User.create({ email: req.body.email, password: String(hash) }) //Create a new user
+        return User.create({
+            first_name: req.body.first_name,
+            last_name: req.body.last_name,
+            email: req.body.email, 
+            password: String(hash) 
+        }) //Create a new user
     }).then(() => {
         var payload = { email: req.body.email };
         var token = jwt.sign(payload, global.jwtOptions.secretOrKey); //Create JWT token with email claim
         return res.json({
-            error: false, 
-            message: "OK", 
+            error: false,
+            message: "OK",
             data: { token: token }
         });
     }).catch(err => {
@@ -166,8 +175,10 @@ router.get('/reset_password/:token', async function(req, res, next) {
             message: "Your password reset token has expired or isn't valid. Please request a new one."
         });
         let expired_token = await PasswordResetToken.findOne({ where: { "token": req.params.token }});
-        let user = await expired_token.getUser();
-        PasswordResetToken.destroy({ where: { 'user_id': user.user_id }}); //Asynchronously destroy old tokens
+        if (expired_token) {
+            let user = await expired_token.getUser();
+            PasswordResetToken.destroy({ where: { 'user_id': user.user_id }}); //Asynchronously destroy old tokens
+        }
     }
 });
 
@@ -227,6 +238,12 @@ router.put('/reset_password', async function(req, res, next) {
         }
     }
 });
+
+
+router.get("/user_details", passport.authenticate('jwt', { session: false }), function (req, res) {
+    res.status(200).json(req.user);
+});
+
 
 /*
 * Route for testing auth functionality
