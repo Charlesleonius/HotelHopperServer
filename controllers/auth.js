@@ -22,7 +22,7 @@ router.post('/register', function(req, res) {
         password: req.body.password
       }, {
         email: 'required|email',
-        password: 'required|regex:/((?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,20})/'
+        password: 'required|regex:/((?=.*[0-9])(?=.*[a-z])(?=.*[A-Z]).{8,20})/'
     });
     if (validator.fails()) {
         res.status(400).json({ error: true, message: validator.errors["errors"] });
@@ -180,7 +180,7 @@ router.put('/reset_password', async function(req, res, next) {
         confirm_password: req.body.confirm_password,
         token: req.body.token
       }, {
-        password: 'required|regex:/((?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,20})/',
+        password: 'required|regex:/((?=.*[0-9])(?=.*[a-z])(?=.*[A-Z]).{8,20})/',
         confirm_password: 'required',
         token: 'required'
     });
