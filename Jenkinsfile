@@ -8,8 +8,6 @@ pipeline {
         nodejs('HotelHopper') {
           sh '''
                 npm install
-                mkdir ./migrations
-                node_modules/.bin/sequelize db:migrate --url 'postgresql://localhost:5432/hotel_hopper'
                 npm run test-jenkins
             '''
         }
@@ -25,6 +23,5 @@ pipeline {
   }
   environment {
     HOME = '.'
-    PSQL_URI = 'postgresql://localhost:5432/hotel_hopper'
   }
 }

@@ -1,9 +1,11 @@
+
 //Imports
 require('dotenv').config()
 let express = require("express");
 let bodyParser = require("body-parser");
 let passport = require("passport");
 let passportJWT = require("passport-jwt");
+let cors = require('cors')
 
 /*
 * The db object contains a reference to the database connection pool as well as all of the models
@@ -14,6 +16,7 @@ let db = require('./models/index.js');
 
 //Controllers
 var auth = require('./controllers/auth.js');
+var popDest = require('./controllers/popular-destinations.js');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,7 +30,7 @@ jwtOptions.secretOrKey = 'wEKNYENCpc4HvogKJs0pa1XPD5vbx4ZsxaYzZ8SUwMGBrgOv0A4zK2
 
 //Define authentication strategy for JWT
 var strategy = new JwtStrategy(jwtOptions, function(jwt_payload, next) {
-    db.user.findOne({ email: jwt_payload.email }).then(user => {
+    User.findOne({where: { email: jwt_payload.email }}).then(user => {
         if (user) {
             next(null, user);
         } else {
@@ -38,18 +41,22 @@ var strategy = new JwtStrategy(jwtOptions, function(jwt_payload, next) {
 passport.use(strategy);
 
 //Load middleware
+app.use(cors())
 app.use(passport.initialize());
 app.use(bodyParser.json({
     extended: true
 }));
 
-//Start the application if a database connection is successfull
+//Start the application if a database connection is successfull and the schema is sychronized
 db.sequelize.authenticate().then(() => {
-    app.listen(PORT);
+    return db.sequelize.sync({ alter: true })
+}).then(() => {
+    return app.listen(PORT);
+}).then(() => {
+    console.log("Database synchronized and server listening on port: " + PORT)
 }).catch(err => {
     throw new Error('Database connection failed with error: ' + err);
 });
-
 /*
 * Define routes
 * Controllers should have their own route prefix. 
@@ -58,6 +65,7 @@ db.sequelize.authenticate().then(() => {
 * then set the controller as middleware with `app.use('/<controller name>', <imported controller>)`
 */
 app.use('/auth', auth);
+app.use('/popular-destinations', popDest);
 app.get('/', (req, res) => res.send('Hello World!'));
 
 module.exports = app

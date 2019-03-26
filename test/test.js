@@ -4,7 +4,8 @@ var chaiHttp = require('chai-http');
 chai.use(chaiHttp);
 let server = require('../app');
 let should = chai.should();
-let db = require('../models/index.js');
+let jwt = require('jsonwebtoken');
+require('../models/index.js').User;
 
 
 /*
@@ -21,8 +22,10 @@ describe('Array', function() {
 
 describe('Login with email and password', () => {
     before(function(done) {
-        db.user.destroy({ where: { email: 'test@test.com' }}).then(() => {
-            return db.user.create({ 
+        User.destroy({ where: { email: 'test@test.com' }}).then(() => {
+            return User.create({
+                first_name: "John",
+                last_name: "Doe",
                 email: 'test@test.com', 
                 password: "$2b$10$IDmDD/VYelBhCsmBj2vALu6j7W7KuDsYcTL/58yyEkQKOFhM2m3.u" 
             });
@@ -34,7 +37,7 @@ describe('Login with email and password', () => {
         });
     });
 
-    it('It should return a JWT on login', () => {
+    it('It should return a JWT on login', function(done) {
         let account = {
             email: "test@test.com",
             password: "password1234",
@@ -47,11 +50,12 @@ describe('Login with email and password', () => {
                 res.body.should.have.property('error');
                 res.body.error.should.eql(false);
                 res.body.data.token.should.be.a('string');
+                done();
         });
     });
 
     after(function(done) {
-        db.user.destroy({ where: { email: 'test@test.com' }}).then(() => {
+        User.destroy({ where: { email: 'test@test.com' }}).then(() => {
             done();
         }).catch(err => {
             done(err);
@@ -64,17 +68,19 @@ describe('Login with email and password', () => {
 describe('Signup with email and password', () => {
 
     before(function(done) {
-        db.user.destroy({where: { email: 'test@test.com' }}).then(() => {
+        User.destroy({where: { email: 'test@test.com' }}).then(() => {
             done();
         }).catch(err => {
             done(err);
         });
     });
 
-    it('It should return a JWT on signup', () => {
+    it('It should return a JWT on signup', function(done) {
         let account = {
+            first_name: "John",
+            last_name: "Doe",
             email: "test@test.com",
-            password: "password1234",
+            password: "Pa5word13!",
         }
         chai.request(server)
             .post('/auth/register')
@@ -84,11 +90,12 @@ describe('Signup with email and password', () => {
                 res.body.should.have.property('error');
                 res.body.error.should.eql(false);
                 res.body.data.token.should.be.a('string');
+                done();
         });
     });
 
     after(function(done) {
-        db.user.destroy({ where: { email: 'test@test.com' }}).then(() => {
+        User.destroy({ where: { email: 'test@test.com' }}).then(() => {
             done();
         }).catch(err => {
             done(err);
@@ -99,16 +106,17 @@ describe('Signup with email and password', () => {
 
 describe('Protected endpoints should not be accessed without a valid JWT', () => {
 
-    it('It should return an unauthorized error', () => {
+    it('It should return an unauthorized error', function(done) {
         chai.request(server)
             .get('/auth/secret')
             .end(function (err, res) {
                 res.should.have.status(401);
+                done();
         });
     });
 
     after(function(done) {
-        db.user.destroy({ where: { email: 'test@test.com' }}).then(() => {
+        User.destroy({ where: { email: 'test@test.com' }}).then(() => {
             done();
         }).catch(err => {
             done(err);
@@ -116,3 +124,48 @@ describe('Protected endpoints should not be accessed without a valid JWT', () =>
     });
 
 });
+
+describe('Popular destinations', () => {
+    it('It should return four cities and a link to download picture.', function(done) {
+        chai.request(server)
+            .get('/popular-destinations')
+            .end(function (err, res) {
+                res.should.have.status(200);
+                done();
+        });
+    });
+}); 
+
+describe('Get user details', () => {
+    token = ""
+    before(function(done) {
+        User.destroy({ where: { email: 'test@test.com' }}).then(() => {
+            return User.create({
+                first_name: "John",
+                last_name: "Doe",
+                email: 'test@test.com', 
+                password: "$2b$10$IDmDD/VYelBhCsmBj2vALu6j7W7KuDsYcTL/58yyEkQKOFhM2m3.u" 
+            });
+        }).then(() => {
+            var payload = { email: 'test@test.com' };
+            token = jwt.sign(payload, global.jwtOptions.secretOrKey)
+            done();
+        }).catch(err => {
+            console.log(err);
+            done(err);
+        });
+    });
+    it('It should return the users details', function(done) {
+        chai.request(server)
+            .get('/auth/user_details')
+            .set('Authorization', 'Bearer ' + token)
+            .end(function (err, res) {
+                console.log("asdf" + res.body.first_name);
+                res.should.have.status(200);
+                res.body.first_name.should.eql('John');
+                res.body.last_name.should.eql('Doe');
+                done();
+        });
+    });
+
+}); 
