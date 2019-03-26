@@ -7,6 +7,8 @@ module.exports = function(sequelize, DataTypes) {
             primaryKey: true,
             autoIncrement: true,
         },
+        first_name: Sequelize.STRING,
+        last_name: Sequelize.STRING,
         email: Sequelize.STRING,
         password: Sequelize.STRING
     });

@@ -4,6 +4,7 @@ var chaiHttp = require('chai-http');
 chai.use(chaiHttp);
 let server = require('../app');
 let should = chai.should();
+let jwt = require('jsonwebtoken');
 require('../models/index.js').User;
 
 
@@ -22,7 +23,9 @@ describe('Array', function() {
 describe('Login with email and password', () => {
     before(function(done) {
         User.destroy({ where: { email: 'test@test.com' }}).then(() => {
-            return User.create({ 
+            return User.create({
+                first_name: "John",
+                last_name: "Doe",
                 email: 'test@test.com', 
                 password: "$2b$10$IDmDD/VYelBhCsmBj2vALu6j7W7KuDsYcTL/58yyEkQKOFhM2m3.u" 
             });
@@ -34,7 +37,7 @@ describe('Login with email and password', () => {
         });
     });
 
-    it('It should return a JWT on login', () => {
+    it('It should return a JWT on login', function(done) {
         let account = {
             email: "test@test.com",
             password: "password1234",
@@ -47,6 +50,7 @@ describe('Login with email and password', () => {
                 res.body.should.have.property('error');
                 res.body.error.should.eql(false);
                 res.body.data.token.should.be.a('string');
+                done();
         });
     });
 
@@ -71,8 +75,10 @@ describe('Signup with email and password', () => {
         });
     });
 
-    it('It should return a JWT on signup', () => {
+    it('It should return a JWT on signup', function(done) {
         let account = {
+            first_name: "John",
+            last_name: "Doe",
             email: "test@test.com",
             password: "Pa5word13!",
         }
@@ -84,6 +90,7 @@ describe('Signup with email and password', () => {
                 res.body.should.have.property('error');
                 res.body.error.should.eql(false);
                 res.body.data.token.should.be.a('string');
+                done();
         });
     });
 
@@ -99,11 +106,12 @@ describe('Signup with email and password', () => {
 
 describe('Protected endpoints should not be accessed without a valid JWT', () => {
 
-    it('It should return an unauthorized error', () => {
+    it('It should return an unauthorized error', function(done) {
         chai.request(server)
             .get('/auth/secret')
             .end(function (err, res) {
                 res.should.have.status(401);
+                done();
         });
     });
 
@@ -118,60 +126,46 @@ describe('Protected endpoints should not be accessed without a valid JWT', () =>
 });
 
 describe('Popular destinations', () => {
-    it('It should return four cities and a link to download picture.', () => {
+    it('It should return four cities and a link to download picture.', function(done) {
         chai.request(server)
             .get('/popular-destinations')
             .end(function (err, res) {
                 res.should.have.status(200);
+                done();
         });
     });
 }); 
 
-describe('Reset password', () => {
+describe('Get user details', () => {
+    token = ""
     before(function(done) {
         User.destroy({ where: { email: 'test@test.com' }}).then(() => {
-            return User.create({ 
+            return User.create({
+                first_name: "John",
+                last_name: "Doe",
                 email: 'test@test.com', 
                 password: "$2b$10$IDmDD/VYelBhCsmBj2vALu6j7W7KuDsYcTL/58yyEkQKOFhM2m3.u" 
             });
         }).then(() => {
+            var payload = { email: 'test@test.com' };
+            token = jwt.sign(payload, global.jwtOptions.secretOrKey)
             done();
         }).catch(err => {
             console.log(err);
             done(err);
         });
     });
-    token = ""
-    it('It should return a password reset token', async () => {
-        await chai.request(server)
-            .get('/forgot_password')
+    it('It should return the users details', function(done) {
+        chai.request(server)
+            .get('/auth/user_details')
+            .set('Authorization', 'Bearer ' + token)
             .end(function (err, res) {
+                console.log("asdf" + res.body.first_name);
                 res.should.have.status(200);
-                res.body.should.have.property('token');
-        });
-    });
-    it('It should verify the password reset token', async () => {
-        await chai.request(server)
-            .get('/reset_password/' + token)
-            .end(function (err, res) {
-                res.should.have.status(200);
-                res.body.should.have.property('token');
+                res.body.first_name.should.eql('John');
+                res.body.last_name.should.eql('Doe');
+                done();
         });
     });
 
-    it('It should verify the password reset token', async () => {
-        let data = {
-            email: "test@teset.com",
-            password: "Pa5word14!",
-            confirmed_password: "Pa5word14!",
-            token: token
-        }
-        await chai.request(server)
-            .put('/reset_password')
-            .send(data)
-            .end(function (err, res) {
-                res.should.have.status(200);
-                res.body.error.should.eql(false);
-        });
-    });
 }); 

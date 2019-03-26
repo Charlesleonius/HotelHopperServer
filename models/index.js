@@ -4,7 +4,7 @@ var Sequelize = require("sequelize");
 let sequelize = new Sequelize(process.env.PSQL_URI, {
     dialect: 'postgres',
     operatorsAliases: true,
-    logging: true,
+    logging: false,
     define: {
         freezeTableName: true,
         charset: 'utf8',
@@ -20,6 +20,12 @@ let sequelize = new Sequelize(process.env.PSQL_URI, {
 
 const User = sequelize.import('auth/user.js');
 const PasswordResetToken = sequelize.import('auth/passwordResetToken.js');
+
+User.prototype.toJSON =  function () { //Hide password when returning user objects
+    var values = Object.assign({}, this.get());
+    delete values.password;
+    return values;
+}
 
 //Associations
 User.hasOne(PasswordResetToken, {foreignKey: 'user_id', sourceKey: 'user_id'});

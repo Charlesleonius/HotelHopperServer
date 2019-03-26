@@ -30,7 +30,7 @@ jwtOptions.secretOrKey = 'wEKNYENCpc4HvogKJs0pa1XPD5vbx4ZsxaYzZ8SUwMGBrgOv0A4zK2
 
 //Define authentication strategy for JWT
 var strategy = new JwtStrategy(jwtOptions, function(jwt_payload, next) {
-    db.user.findOne({ email: jwt_payload.email }).then(user => {
+    User.findOne({where: { email: jwt_payload.email }}).then(user => {
         if (user) {
             next(null, user);
         } else {
@@ -49,7 +49,7 @@ app.use(bodyParser.json({
 
 //Start the application if a database connection is successfull and the schema is sychronized
 db.sequelize.authenticate().then(() => {
-    return db.sequelize.sync()
+    return db.sequelize.sync({ alter: true })
 }).then(() => {
     return app.listen(PORT);
 }).then(() => {
