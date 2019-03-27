@@ -2,7 +2,7 @@ var assert = require('assert');
 var chai = require('chai')
 var chaiHttp = require('chai-http');
 chai.use(chaiHttp);
-let server = require('../app');
+let server = require('../app').server;
 let should = chai.should();
 let jwt = require('jsonwebtoken');
 require('../models/index.js').User;
@@ -180,5 +180,6 @@ describe('Get user details', () => {
 }); 
 
 after(function(done) {
-    process.exit(0);
+    server.close();
+    done();
 });
