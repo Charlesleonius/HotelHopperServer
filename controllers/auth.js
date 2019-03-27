@@ -127,15 +127,15 @@ router.post('/forgot_password', function(req, res, next) {
                 }
             });
             if (process.env.NODE_ENV != "test") { // Send email in staging or production environments
+                let  resetURL = (`https://` + process.env.APP_URL + `/reset/${token}`)
                 const mailOption = {
                     from: `hotelhopperhelp@gmail.com`,
                     to: `${user.email}`,
                     subject: `Reset Your Password from Hotel Hopper!`,
                     text: 
                         `You are receiving this email because you have requested to reset the password for your account.\n\n` +
-                        `Please go to the following link to complete the password reset process within an hour:\n` +
-                         process.env.APP_URL + `/reset_password/${token}\n\n` + 
-                        `If you believe you've received this email in error, please contact support and delete this email.`
+                        `Please go to the following link to complete the password reset process within an hour:\n` + resetURL + 
+                        `\n\nIf you believe you've received this email in error, please contact support and delete this email.`
                 };
                 transporter.sendMail(mailOption, function(err, response) {
                     if (err) { console.log('error: ', err); }
