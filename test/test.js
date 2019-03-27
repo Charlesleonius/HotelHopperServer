@@ -2,11 +2,21 @@ var assert = require('assert');
 var chai = require('chai')
 var chaiHttp = require('chai-http');
 chai.use(chaiHttp);
-let server = require('../app');
+let server = require('../app').server;
 let should = chai.should();
 let jwt = require('jsonwebtoken');
 require('../models/index.js').User;
+let db = require('../models/index.js');
 
+before(function(done) {
+    db.sequelize.authenticate().then(() => {
+        return db.sequelize.sync({ alter: true })
+    }).then(() => {
+        done();
+    }).catch(err => {
+        done(err);
+    })
+});
 
 /*
 * Place holder to make sure tests are running on jenkins
@@ -160,7 +170,6 @@ describe('Get user details', () => {
             .get('/auth/user_details')
             .set('Authorization', 'Bearer ' + token)
             .end(function (err, res) {
-                console.log("asdf" + res.body.first_name);
                 res.should.have.status(200);
                 res.body.first_name.should.eql('John');
                 res.body.last_name.should.eql('Doe');
@@ -169,3 +178,8 @@ describe('Get user details', () => {
     });
 
 }); 
+
+after(function(done) {
+    server.close();
+    done();
+});

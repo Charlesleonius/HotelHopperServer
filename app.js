@@ -19,6 +19,7 @@ var auth = require('./controllers/auth.js');
 var popDest = require('./controllers/popular-destinations.js');
 
 const app = express();
+const server = require('http').createServer(app);
 const PORT = process.env.PORT || 3000;
 
 //JWT Helpers
@@ -51,7 +52,7 @@ app.use(bodyParser.json({
 db.sequelize.authenticate().then(() => {
     return db.sequelize.sync({ alter: true })
 }).then(() => {
-    return app.listen(PORT);
+    return server.listen(PORT);
 }).then(() => {
     console.log("Database synchronized and server listening on port: " + PORT)
 }).catch(err => {
@@ -68,4 +69,7 @@ app.use('/auth', auth);
 app.use('/popular-destinations', popDest);
 app.get('/', (req, res) => res.send('Hello World!'));
 
-module.exports = app
+module.exports = {
+    app,
+    server
+}
