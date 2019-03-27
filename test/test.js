@@ -9,7 +9,9 @@ require('../models/index.js').User;
 let db = require('../models/index.js');
 
 before(function(done) {
-    db.sequelize.sync({ alter: true }).then(() => {
+    db.sequelize.authenticate().then(() => {
+        return db.sequelize.sync({ alter: true })
+    }).then(() => {
         done();
     }).catch(err => {
         done(err);
