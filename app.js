@@ -52,7 +52,11 @@ app.use(bodyParser.json({
 db.sequelize.authenticate().then(() => {
     return db.sequelize.sync({ alter: true })
 }).then(() => {
-    return server.listen(PORT);
+    if (process.argv.slice(2).indexOf('--no-listener') == -1) {
+        return server.listen(PORT);
+    } else {
+        process.exit(0);
+    }
 }).then(() => {
     console.log("Database synchronized and server listening on port: " + PORT)
 }).catch(err => {

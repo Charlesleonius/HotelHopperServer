@@ -63,7 +63,7 @@ router.post('/register', function(req, res) {
 /*
 * Takes username and password and create a JWT Token
 */
-router.post('/login', function (req, res) {
+router.post('/login', async function (req, res) {
     let validator = new Validator({
         email: req.body.email,
         password: req.body.password
@@ -72,29 +72,26 @@ router.post('/login', function (req, res) {
         password: 'required'
     });
     if (validator.fails()) {
-        res.status(400).json({ error: true, message: validator.errors["errors"] });
+        return res.status(400).json({ error: true, message: validator.errors["errors"] });
     }
-    User.findOne({where: { email: req.body.email }}).then(user => {
-        if (!user) {
-            return Promise.reject("Invalid username or password");
-        } else {
-            return bcrypt.compare(req.body.password, user.password); //Check password hash against stored hash
-        }
-    }).then(same => {
-        if (same) {
-            var payload = { email: req.body.email };
-            return res.json({
-                error: false, 
-                message: "OK", 
-                data: { token: jwt.sign(payload, global.jwtOptions.secretOrKey) }
-            }); //Return a new JWT with email claim
-        } else {
-            return Promise.reject("Invalid username or password");
-        }
-    }).catch(err => {
-        console.log(err);
-        res.status(200).json({ error: true, message: err || "Invalid username or password" });
-    })
+    let user = await User.findOne({where: { email: req.body.email }})
+    if (!user) {
+        return res.status(400).json({ error: true, message: "Invalid username or password" });
+    }
+    let same = await bcrypt.compare(req.body.password, user.password); //Check password hash against stored hash
+    if (same) {
+        var payload = { email: req.body.email };
+        return res.json({
+            error: false, 
+            message: "OK", 
+            data: { 
+                token: jwt.sign(payload, global.jwtOptions.secretOrKey),
+                user: user
+            }
+        });
+    } else {
+        return res.status(400).json({ error: true, message: "Invalid username or password" });
+    }
 });
 
 /*
