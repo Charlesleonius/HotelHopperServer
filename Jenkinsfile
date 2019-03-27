@@ -8,6 +8,7 @@ pipeline {
         nodejs('HotelHopper') {
           sh '''
                 npm install
+                npm run sync
                 npm run test-jenkins
             '''
         }
