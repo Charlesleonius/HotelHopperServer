@@ -28,13 +28,12 @@ router.put('/scraped_hotel', [requireAuth, requireAdmin], (req, res) => {
         stars: req.body.stars
     }).then(result => {
         req.body.rooms.forEach(room => {
-            for (i = 0; i < room.count; i++) {
-                HotelRoom.create({
-                    hotel_id: result.hotelID,
-                    room_type_id: room.room_type_id,
-                    price: room.price
-                })
-            }
+            HotelRoom.create({
+                hotelID: result.hotelID,
+                roomTypeID: room.room_type_id,
+                price: room.price,
+                roomCount: room.count
+            })
         });
         res.status(200).send("OK");
     }).catch(err => {

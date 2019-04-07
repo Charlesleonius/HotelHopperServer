@@ -20,7 +20,11 @@ module.exports = function(sequelize, DataTypes) {
             type: Sequelize.STRING,
             field: 'image_url'
         },
-        price: Sequelize.INTEGER 
+        price: Sequelize.INTEGER,
+        roomCount: {
+            type: Sequelize.INTEGER,
+            field: 'room_count'
+        }
     });
     return HotelRoom;
 };
