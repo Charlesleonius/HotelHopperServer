@@ -13,8 +13,9 @@ require('../models/index.js').User;
 //Recommended rounds for password hashing
 const SALT_ROUNDS = 10;
 
-/*
-* Creates a new user and returns a JWT
+
+/**
+* @Description - Creates a new user and returns a JWT
 */
 router.post('/register', function(req, res) {
     let validator = new Validator({
@@ -60,8 +61,9 @@ router.post('/register', function(req, res) {
     })
 })
 
-/*
-* Takes username and password and create a JWT Token
+
+/**
+* @Description - Takes username and password and create a JWT Token
 */
 router.post('/login', async function (req, res) {
     let validator = new Validator({
@@ -94,8 +96,9 @@ router.post('/login', async function (req, res) {
     }
 });
 
-/*
-* Create a token and send the unique password-reset-link to the registered user
+
+/**
+* @Description - Create a token and send the unique password-reset-link to the registered user
 */
 router.post('/forgot_password', function(req, res, next) {
     let validator = new Validator({
@@ -151,8 +154,9 @@ router.post('/forgot_password', function(req, res, next) {
     });
 });
 
-/*
-* Get: The unique reset-password-link
+
+/**
+* @Description - The unique reset-password-link
 */
 router.get('/reset_password/:token', async function(req, res, next) {
     let passwordResetToken = await PasswordResetToken.findOne({
@@ -179,8 +183,9 @@ router.get('/reset_password/:token', async function(req, res, next) {
     }
 });
 
-/*
-* Put: Reset the password
+
+/**
+* @Description - Reset the password
 */
 router.put('/reset_password', async function(req, res, next) {
     let validator = new Validator({
@@ -237,13 +242,18 @@ router.put('/reset_password', async function(req, res, next) {
 });
 
 
+/**
+* @Protected
+* @Description - Gets the users full account details
+*/
 router.get("/user_details", passport.authenticate('jwt', { session: false }), function (req, res) {
     res.status(200).json(req.user);
 });
 
 
-/*
-* Route for testing auth functionality
+/**
+* @Protected
+* @Description - Route for testing auth functionality
 */
 router.get("/secret", passport.authenticate('jwt', { session: false }), function (req, res) {
     res.json("Success! You can not see this without a token");

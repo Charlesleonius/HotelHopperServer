@@ -14,10 +14,6 @@ let cors = require('cors')
 */
 let db = require('./models/index.js');
 
-//Controllers
-var auth = require('./controllers/auth.js');
-var popDest = require('./controllers/popular-destinations.js');
-
 const app = express();
 const server = require('http').createServer(app);
 const PORT = process.env.PORT || 3000;
@@ -50,7 +46,7 @@ app.use(bodyParser.json({
 
 //Start the application if a database connection is successfull and the schema is sychronized
 db.sequelize.authenticate().then(() => {
-    return db.sequelize.sync({ alter: true })
+    return db.sequelize.sync()
 }).then(() => {
     if (process.argv.slice(2).indexOf('--no-listener') == -1) {
         return server.listen(PORT);
@@ -62,6 +58,13 @@ db.sequelize.authenticate().then(() => {
 }).catch(err => {
     throw new Error('Database connection failed with error: ' + err);
 });
+
+
+//Controllers
+var authController = require('./controllers/auth.js');
+var popularDestinationsController = require('./controllers/popular-destinations.js');
+var hotelController = require('./controllers/hotels.js');
+
 /*
 * Define routes
 * Controllers should have their own route prefix. 
@@ -69,8 +72,9 @@ db.sequelize.authenticate().then(() => {
 * To do this just import the controller `require(./controllers/<controller name>.js)`
 * then set the controller as middleware with `app.use('/<controller name>', <imported controller>)`
 */
-app.use('/auth', auth);
-app.use('/popular-destinations', popDest);
+app.use('/auth', authController);
+app.use('/popular-destinations', popularDestinationsController);
+app.use('/hotels', hotelController);
 app.get('/', (req, res) => res.send('Hello World!'));
 
 module.exports = {
