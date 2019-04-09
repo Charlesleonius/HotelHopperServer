@@ -42,7 +42,8 @@ module.exports = function(sequelize, DataTypes) {
             }
         },
         latitude: Sequelize.FLOAT,
-        longitude: Sequelize.FLOAT
+        longitude: Sequelize.FLOAT,
+        position: DataTypes.GEOMETRY('POINT', 4326)
     }, {
         underscored: true
     });

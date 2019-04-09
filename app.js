@@ -31,7 +31,7 @@ var strategy = new JwtStrategy(jwtOptions, function(jwt_payload, next) {
         if (user) {
             next(null, user);
         } else {
-            res.status(401);
+            next(null, null);
         }
     });
 });
