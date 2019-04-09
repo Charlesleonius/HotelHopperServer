@@ -27,17 +27,17 @@ router.get('/', (req, res) => {
             const dlLink = "https://s3.amazonaws.com/hotel-hopper-bucket1/";
             const contents = data.Contents;
             const length = data.Contents.length;
-            for(var i = 0; i < length; i++) {
-                var city = contents[i].Key;
-                city = city.replace('-', ' ');
-                city = city.replace('.png', '');
-                city = city.replace(/\b\w/g, l => l.toUpperCase());
-                destination = {
-                    city: city,
-                    url: dlLink + contents[i].Key
-                };
-                destinations.push(destination);
-            }
+            // // for(var i = 0; i < length; i++) {
+            // //     var city = contents[i].Key;
+            // //     city = city.replace('-', ' ');
+            // //     city = city.replace('.png', '');
+            // //     city = city.replace(/\b\w/g, l => l.toUpperCase());
+            // //     destination = {
+            // //         city: city,
+            // //         url: dlLink + contents[i].Key
+            // //     };
+            //     destinations.push(destination);
+            // }
             res.send(destinations);
             return;
         }

@@ -168,6 +168,31 @@ describe('Get user details', () => {
 
 }); 
 
+describe('Hotels', () => {
+    var payload = { email: 'test@test.com' };
+    token = jwt.sign(payload, global.jwtOptions.secretOrKey)
+    it('It should return the hotel\'s details', function(done) {
+        chai.request(server)
+            .get('/hotels/1')
+            .set('Authorization', 'Bearer ' + token)
+            .end(function (err, res) {
+                res.should.have.status(200);
+                res.body.data.should.not.eql(undefined);
+                done();
+        });
+    });
+    it('It should return matching hotels', function(done) {
+        chai.request(server)
+            .get('/hotels?latitude=37.3440232&longitude=-121.8738311&startDate=2019-04-08&endDate=2019-04-09&persons=1')
+            .set('Authorization', 'Bearer ' + token)
+            .end(function (err, res) {
+                res.should.have.status(200);
+                res.body.data.should.not.eql(undefined);
+                done();
+        });
+    });
+}); 
+
 after(function(done) {
     server.close();
     done();
