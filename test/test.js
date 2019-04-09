@@ -2,11 +2,10 @@ var assert = require('assert');
 var chai = require('chai')
 var chaiHttp = require('chai-http');
 chai.use(chaiHttp);
-let server = require('../app');
+let server = require('../app').server;
 let should = chai.should();
 let jwt = require('jsonwebtoken');
 require('../models/index.js').User;
-
 
 /*
 * Place holder to make sure tests are running on jenkins
@@ -160,7 +159,6 @@ describe('Get user details', () => {
             .get('/auth/user_details')
             .set('Authorization', 'Bearer ' + token)
             .end(function (err, res) {
-                console.log("asdf" + res.body.first_name);
                 res.should.have.status(200);
                 res.body.first_name.should.eql('John');
                 res.body.last_name.should.eql('Doe');
@@ -169,3 +167,33 @@ describe('Get user details', () => {
     });
 
 }); 
+
+describe('Hotels', () => {
+    var payload = { email: 'test@test.com' };
+    token = jwt.sign(payload, global.jwtOptions.secretOrKey)
+    it('It should return the hotel\'s details', function(done) {
+        chai.request(server)
+            .get('/hotels/1')
+            .set('Authorization', 'Bearer ' + token)
+            .end(function (err, res) {
+                res.should.have.status(200);
+                res.body.data.should.not.eql(undefined);
+                done();
+        });
+    });
+    it('It should return matching hotels', function(done) {
+        chai.request(server)
+            .get('/hotels?latitude=37.3440232&longitude=-121.8738311&startDate=2019-04-08&endDate=2019-04-09&persons=1')
+            .set('Authorization', 'Bearer ' + token)
+            .end(function (err, res) {
+                res.should.have.status(200);
+                res.body.data.should.not.eql(undefined);
+                done();
+        });
+    });
+}); 
+
+after(function(done) {
+    server.close();
+    done();
+});

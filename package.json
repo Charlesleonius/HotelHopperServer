@@ -5,6 +5,7 @@
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
+    "sync": "node app.js --no-listener",
     "test": "mocha --timeout 5000 --exit || true",
     "test-jenkins": "JUNIT_REPORT_PATH=test-result/result.xml JUNIT_REPORT_STACK=1 mocha --timeout 25000 --colors --reporter mocha-jenkins-reporter --exit || true"
   },
@@ -25,6 +26,7 @@
     "chai": "^4.2.0",
     "chai-http": "^4.2.1",
     "cors": "^2.8.5",
+    "decamelize": "^3.2.0",
     "dotenv": "^6.2.0",
     "express": "^4.16.4",
     "express-flash": "0.0.2",
@@ -41,7 +43,7 @@
     "passport": "^0.4.0",
     "passport-jwt": "^4.0.0",
     "pg": "^7.8.2",
-    "sequelize": "^4.43.0",
+    "sequelize": "^4.43.1",
     "sequelize-cli": "^5.4.0",
     "validatorjs": "^3.15.1",
     "winston": "^3.2.1"

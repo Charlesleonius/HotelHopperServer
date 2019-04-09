@@ -13,8 +13,9 @@ require('../models/index.js').User;
 //Recommended rounds for password hashing
 const SALT_ROUNDS = 10;
 
-/*
-* Creates a new user and returns a JWT
+
+/**
+* @Description - Creates a new user and returns a JWT
 */
 router.post('/register', function(req, res) {
     let validator = new Validator({
@@ -60,10 +61,11 @@ router.post('/register', function(req, res) {
     })
 })
 
-/*
-* Takes username and password and create a JWT Token
+
+/**
+* @Description - Takes username and password and create a JWT Token
 */
-router.post('/login', function (req, res) {
+router.post('/login', async function (req, res) {
     let validator = new Validator({
         email: req.body.email,
         password: req.body.password
@@ -72,33 +74,31 @@ router.post('/login', function (req, res) {
         password: 'required'
     });
     if (validator.fails()) {
-        res.status(400).json({ error: true, message: validator.errors["errors"] });
+        return res.status(400).json({ error: true, message: validator.errors["errors"] });
     }
-    User.findOne({where: { email: req.body.email }}).then(user => {
-        if (!user) {
-            return Promise.reject("Invalid username or password");
-        } else {
-            return bcrypt.compare(req.body.password, user.password); //Check password hash against stored hash
-        }
-    }).then(same => {
-        if (same) {
-            var payload = { email: req.body.email };
-            return res.json({
-                error: false, 
-                message: "OK", 
-                data: { token: jwt.sign(payload, global.jwtOptions.secretOrKey) }
-            }); //Return a new JWT with email claim
-        } else {
-            return Promise.reject("Invalid username or password");
-        }
-    }).catch(err => {
-        console.log(err);
-        res.status(200).json({ error: true, message: err || "Invalid username or password" });
-    })
+    let user = await User.findOne({where: { email: req.body.email }})
+    if (!user) {
+        return res.status(400).json({ error: true, message: "Invalid username or password" });
+    }
+    let same = await bcrypt.compare(req.body.password, user.password); //Check password hash against stored hash
+    if (same) {
+        var payload = { email: req.body.email };
+        return res.json({
+            error: false, 
+            message: "OK", 
+            data: { 
+                token: jwt.sign(payload, global.jwtOptions.secretOrKey),
+                user: user
+            }
+        });
+    } else {
+        return res.status(400).json({ error: true, message: "Invalid username or password" });
+    }
 });
 
-/*
-* Create a token and send the unique password-reset-link to the registered user
+
+/**
+* @Description - Create a token and send the unique password-reset-link to the registered user
 */
 router.post('/forgot_password', function(req, res, next) {
     let validator = new Validator({
@@ -127,15 +127,15 @@ router.post('/forgot_password', function(req, res, next) {
                 }
             });
             if (process.env.NODE_ENV != "test") { // Send email in staging or production environments
+                let  resetURL = (`https://` + process.env.APP_URL + `/reset/${token}`)
                 const mailOption = {
                     from: `hotelhopperhelp@gmail.com`,
                     to: `${user.email}`,
                     subject: `Reset Your Password from Hotel Hopper!`,
                     text: 
                         `You are receiving this email because you have requested to reset the password for your account.\n\n` +
-                        `Please go to the following link to complete the password reset process within an hour:\n` +
-                         process.env.APP_URL + `/reset_password/${token}\n\n` + 
-                        `If you believe you've received this email in error, please contact support and delete this email.`
+                        `Please go to the following link to complete the password reset process within an hour:\n` + resetURL + 
+                        `\n\nIf you believe you've received this email in error, please contact support and delete this email.`
                 };
                 transporter.sendMail(mailOption, function(err, response) {
                     if (err) { console.log('error: ', err); }
@@ -154,8 +154,9 @@ router.post('/forgot_password', function(req, res, next) {
     });
 });
 
-/*
-* Get: The unique reset-password-link
+
+/**
+* @Description - The unique reset-password-link
 */
 router.get('/reset_password/:token', async function(req, res, next) {
     let passwordResetToken = await PasswordResetToken.findOne({
@@ -182,8 +183,9 @@ router.get('/reset_password/:token', async function(req, res, next) {
     }
 });
 
-/*
-* Put: Reset the password
+
+/**
+* @Description - Reset the password
 */
 router.put('/reset_password', async function(req, res, next) {
     let validator = new Validator({
@@ -240,13 +242,18 @@ router.put('/reset_password', async function(req, res, next) {
 });
 
 
+/**
+* @Protected
+* @Description - Gets the users full account details
+*/
 router.get("/user_details", passport.authenticate('jwt', { session: false }), function (req, res) {
     res.status(200).json(req.user);
 });
 
 
-/*
-* Route for testing auth functionality
+/**
+* @Protected
+* @Description - Route for testing auth functionality
 */
 router.get("/secret", passport.authenticate('jwt', { session: false }), function (req, res) {
     res.json("Success! You can not see this without a token");
