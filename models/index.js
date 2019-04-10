@@ -4,7 +4,7 @@ var Sequelize = require("sequelize");
 let sequelize = new Sequelize(process.env.PSQL_URI, {
     dialect: 'postgres',
     operatorsAliases: true,
-    logging: false,
+    logging: true,
     define: {
         underscored: true,
         freezeTableName: true,
@@ -24,7 +24,8 @@ const PasswordResetToken = sequelize.import('auth/passwordResetToken.js');
 const Hotel = sequelize.import('hotels/hotel.js');
 const HotelRoom = sequelize.import('hotels/hotel-room.js');
 const RoomType = sequelize.import('hotels/room-type.js');
-const Reservation = sequelize.import('reservations/reservation.js')
+const Reservation = sequelize.import('reservations/reservation.js');
+const ReservedRoom = sequelize.import('reservations/reserved-room.js');
 
 User.prototype.toJSON =  function () { //Hide password when returning user objects
     var values = Object.assign({}, this.get());
@@ -45,6 +46,9 @@ Hotel.hasMany(HotelRoom, {foreignKey: 'hotel_id', sourceKey: 'hotel_id'});
 HotelRoom.belongsTo(Hotel, {foreignKey: 'hotel_id', sourceKey: 'hotel_id'});
 RoomType.hasOne(HotelRoom, {foreignKey: 'room_type_id', sourceKey: 'room_type_id'});
 
+//ReservedRoom -> Reservation
+ReservedRoom.belongsTo(Reservation, { foreignKey: 'reservation_id', sourceKey: 'reservation_id' });
+
 module.exports = {
     sequelize,
     User,
@@ -52,5 +56,6 @@ module.exports = {
     Hotel,
     HotelRoom,
     RoomType,
-    Reservation
+    Reservation,
+    ReservedRoom
 }

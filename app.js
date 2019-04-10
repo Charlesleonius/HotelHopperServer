@@ -67,6 +67,7 @@ db.sequelize.authenticate().then(() => {
 var authController = require('./controllers/auth.js');
 var popularDestinationsController = require('./controllers/popular-destinations.js');
 var hotelController = require('./controllers/hotels.js');
+var reservationsController = require('./controllers/reservations.js');
 
 /*
 * Define routes
@@ -78,6 +79,7 @@ var hotelController = require('./controllers/hotels.js');
 app.use('/auth', authController);
 app.use('/popularDestinations', popularDestinationsController);
 app.use('/hotels', hotelController);
+app.use('/reservations', reservationsController);
 app.get('/', (req, res) => res.send('Hello World!'));
 
 module.exports = {

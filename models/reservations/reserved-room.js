@@ -1,20 +1,24 @@
 let Sequelize = require('sequelize');
 
 module.exports = function(sequelize, DataTypes) {
-    return Reservation = sequelize.define('reservation', {
-        reservationID: {
+    return ReservedRoom = sequelize.define('reserved_room', {
+        reservedRoomID: {
             type: Sequelize.INTEGER,
             primaryKey: true,
             autoIncrement: true,
+            field: 'reserved_room_id'
+        },
+        reservationID: {
+            type: Sequelize.INTEGER,
             field: 'reservation_id'
         },
         hotelID: {
             type: Sequelize.INTEGER,
             field: 'hotel_id'
         },
-        userID: {
+        roomTypeID: {
             type: Sequelize.INTEGER,
-            field: 'user_id'
+            field: 'room_type_id'
         },
         startDate: {
             type: Sequelize.DATEONLY,
@@ -23,10 +27,6 @@ module.exports = function(sequelize, DataTypes) {
         endDate: {
             type: Sequelize.DATEONLY,
             field: 'end_date'
-        },
-        totalCost: {
-            type: Sequelize.DECIMAL,
-            field: 'total_cost'
         }
     });
 };
