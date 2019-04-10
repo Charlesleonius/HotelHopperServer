@@ -247,20 +247,8 @@ paths:
         200:
           description: "OK"
           schema:
-            type: object
-            example:
-              error: false
-              data: {
-                destinations: [
-                  {
-                    city: "Chicago",
-                    url: "https://s3.amazonaws.com/hotel-hopper-bucket1/chicago.png"
-                  },{
-                    city: "Los Angeles",
-                    url: "https://s3.amazonaws.com/hotel-hopper-bucket1/los-angeles.png"
-                  }
-                ]
-              }
+            $ref: '#/definitions/PopularCitiesResponse'
+
   #Hotels  
   /hotels/hotels:
     get:
@@ -407,7 +395,20 @@ definitions:
         type: boolean
       data:
         $ref: '#/definitions/Hotel'
-  Hotel:
+  PopularCitiesResponse:
+    type: object
+    properties:
+      error:
+        type: boolean
+    example:
+      error: false
+      data:
+        destinations:
+          - city: "Chicago"
+            url: "https://s3.amazonaws.com/hotel-hopper-bucket1/chicago.png"
+          - city: "Los Angeles"
+            url: "https://s3.amazonaws.com/hotel-hopper-bucket1/los-angeles.png"
+  Hotel:    
     type: object
     properties:
       hotelID:

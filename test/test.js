@@ -160,8 +160,8 @@ describe('Get user details', () => {
             .set('Authorization', 'Bearer ' + token)
             .end(function (err, res) {
                 res.should.have.status(200);
-                res.body.firstName.should.eql('John');
-                res.body.lastName.should.eql('Doe');
+                res.body.data.firstName.should.eql('John');
+                res.body.data.lastName.should.eql('Doe');
                 done();
         });
     });
