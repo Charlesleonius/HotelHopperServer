@@ -13,8 +13,18 @@ let requireAdmin = function (req, res, next) {
     }
 };
 
+let sendValidationErrors = function(res, validator) {
+    let validationError = Object.keys(validator.errors["errors"]).map(function(k) { return validator.errors["errors"][k][0]; })[0];
+    return res.status(400).json({ 
+            error: true, 
+            validationErrors: validator.errors["errors"],
+            message: validationError
+    });
+}
+
 module.exports = {
     requireAuth,
-    requireAdmin
+    requireAdmin,
+    sendValidationErrors
 };
 

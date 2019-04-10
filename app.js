@@ -5,7 +5,9 @@ let express = require("express");
 let bodyParser = require("body-parser");
 let passport = require("passport");
 let passportJWT = require("passport-jwt");
-let cors = require('cors')
+let cors = require('cors');
+const YAML = require('yamljs');
+var swaggerUi = require('swagger-ui-express')
 
 /*
 * The db object contains a reference to the database connection pool as well as all of the models
@@ -43,6 +45,7 @@ app.use(passport.initialize());
 app.use(bodyParser.json({
     extended: true
 }));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(YAML.load('./swagger.yaml')));
 
 //Start the application if a database connection is successfull and the schema is sychronized
 db.sequelize.authenticate().then(() => {
@@ -73,7 +76,7 @@ var hotelController = require('./controllers/hotels.js');
 * then set the controller as middleware with `app.use('/<controller name>', <imported controller>)`
 */
 app.use('/auth', authController);
-app.use('/popular-destinations', popularDestinationsController);
+app.use('/popularDestinations', popularDestinationsController);
 app.use('/hotels', hotelController);
 app.get('/', (req, res) => res.send('Hello World!'));
 

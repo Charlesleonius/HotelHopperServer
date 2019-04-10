@@ -8,8 +8,14 @@ module.exports = function(sequelize, DataTypes) {
             autoIncrement: true,
             field: 'user_id'
         },
-        first_name: Sequelize.STRING,
-        last_name: Sequelize.STRING,
+        firstName: {
+            type: Sequelize.STRING,
+            field: 'first_name'
+        },
+        lastName: {
+            type: Sequelize.STRING,
+            field: 'last_name'
+        },
         email: Sequelize.STRING,
         password: Sequelize.STRING,
         isAdmin: {

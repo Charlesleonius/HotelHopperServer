@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Hotel, HotelRoom, sequelize } = require('../models/index.js');
-const { requireAdmin, requireAuth } = require('../middleware.js');
+const { requireAdmin, requireAuth, sendValidationErrors } = require('../middleware.js');
 const Sequelize = require("sequelize");
 let Validator = require('validatorjs');
 
@@ -10,7 +10,7 @@ let Validator = require('validatorjs');
  * @Admin
  * @Description - Takes scraped hotel objects and converts them hotelhopper hotel objects
  */
-router.put('/scraped_hotel', [requireAuth, requireAdmin], (req, res) => {
+router.put('/scrapedHotel', [requireAuth, requireAdmin], (req, res) => {
     let geoLocation = {
         type: 'Point',
         coordinates: [req.body.longitude, req.body.latitude],
@@ -74,12 +74,7 @@ router.get('/', requireAuth, async (req, res) =>{
         "regex.startDate": "Please use the date format yyyy-mm-dd"
     });
     if (validator.fails()) {
-        let validationError = Object.keys(validator.errors["errors"]).map(function(k) { return validator.errors["errors"][k][0]; })[0];
-        return res.status(400).json({ 
-            error: true, 
-            validationErrors: validator.errors["errors"],
-            message: validationError
-        });
+        return sendValidationErrors(res, validator);
     }
     let perPage = req.query.perPage || 15;
     let page = req.query.page || 1;
@@ -160,12 +155,7 @@ router.get('/:id', requireAuth, async (req, res) =>{
         id: 'required|numeric|min:1'
     });
     if (validator.fails()) {
-        let validationError = Object.keys(validator.errors["errors"]).map(function(k) { return validator.errors["errors"][k][0]; })[0];
-        return res.status(400).json({ 
-            error: true, 
-            validationErrors: validator.errors["errors"],
-            message: validationError
-        });
+        return sendValidationErrors(res, validator);
     }
     // Find the hotel given the id
     let hotel = await Hotel.findOne({
@@ -192,12 +182,7 @@ router.get('/:id/rooms', requireAuth, async (req, res) =>{
         endDate: 'required|date|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}$/'
     });
     if (validator.fails()) {
-        let validationError = Object.keys(validator.errors["errors"]).map(function(k) { return validator.errors["errors"][k][0]; })[0];
-        return res.status(400).json({ 
-            error: true, 
-            validationErrors: validator.errors["errors"],
-            message: validationError
-        });
+        return sendValidationErrors(res, validator);
     }
     // Find the hotel given the id
     let hotel = await Hotel.findOne({
