@@ -1,35 +1,34 @@
-var express = require('express');
-var router = express.Router();
-var passport = require("passport");
-var crypto = require('crypto');
-let Validator = require('validatorjs');
-let bcrypt = require('bcryptjs');
-let jwt = require('jsonwebtoken');
-let moment = require('moment');
-let nodemailer = require('nodemailer');
-require('../models/index.js').PasswordResetToken;
-require('../models/index.js').User;
+const express = require('express');
+const router = express.Router();
+const crypto = require('crypto');
+const Validator = require('validatorjs');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const moment = require('moment');
+const nodemailer = require('nodemailer');
+const { sendValidationErrors, requireAuth } = require('../middleware.js');
+const { User, PasswordResetToken } = require('../models/index.js');
 
 //Recommended rounds for password hashing
 const SALT_ROUNDS = 10;
 
-/*
-* Creates a new user and returns a JWT
+/**
+* @Description - Creates a new user and returns a JWT
 */
 router.post('/register', function(req, res) {
     let validator = new Validator({
-        first_name: req.body.first_name,
-        last_name: req.body.last_name,
+        firstName: req.body.firstName,
+        lastName: req.body.lastName,
         email: req.body.email,
         password: req.body.password
       }, {
-        first_name: 'required|string',
-        last_name: 'required|string',
+        firstName: 'required|string',
+        lastName: 'required|string',
         email: 'required|email',
         password: 'required|regex:/((?=.*[0-9])(?=.*[a-z])(?=.*[A-Z]).{8,20})/'
     });
     if (validator.fails()) {
-        res.status(400).json({ error: true, message: validator.errors["errors"] });
+        return sendValidationErrors(res, validator);
     }
     User.findOne({ where: { email: req.body.email }}).then(user => {
         if (user) {
@@ -39,8 +38,8 @@ router.post('/register', function(req, res) {
         }
     }).then(hash => {
         return User.create({
-            first_name: req.body.first_name,
-            last_name: req.body.last_name,
+            firstName: req.body.firstName,
+            lastName: req.body.lastName,
             email: req.body.email, 
             password: String(hash) 
         }) //Create a new user
@@ -50,18 +49,22 @@ router.post('/register', function(req, res) {
         return res.json({
             error: false,
             message: "OK",
-            data: { token: token }
+            data: { 
+                token: token 
+            }
         });
     }).catch(err => {
-        res.status(200).json({ 
+        
+        return res.status(200).json({ 
             error: true, 
             message: err || "Something went wrong, please try again later" 
         });
     })
 })
 
-/*
-* Takes username and password and create a JWT Token
+
+/**
+* @Description - Takes username and password and create a JWT Token
 */
 router.post('/login', async function (req, res) {
     let validator = new Validator({
@@ -72,14 +75,14 @@ router.post('/login', async function (req, res) {
         password: 'required'
     });
     if (validator.fails()) {
-        return res.status(400).json({ error: true, message: validator.errors["errors"] });
+        return sendValidationErrors(res, validator);
     }
     let user = await User.findOne({where: { email: req.body.email }})
     if (!user) {
         return res.status(400).json({ error: true, message: "Invalid username or password" });
     }
-    let same = await bcrypt.compare(req.body.password, user.password); //Check password hash against stored hash
-    if (same) {
+    let passwordMatch = await bcrypt.compare(req.body.password, user.password); //Check password hash against stored hash
+    if (passwordMatch) {
         var payload = { email: req.body.email };
         return res.json({
             error: false, 
@@ -94,17 +97,18 @@ router.post('/login', async function (req, res) {
     }
 });
 
-/*
-* Create a token and send the unique password-reset-link to the registered user
+
+/**
+* @Description - Create a token and send the unique password-reset-link to the registered user
 */
-router.post('/forgot_password', function(req, res, next) {
+router.post('/forgotPassword', function(req, res, next) {
     let validator = new Validator({
         email: req.body.email,
       }, {
         email: 'required|email'
     });
     if (validator.fails()) {
-        res.status(400).json({ error: true, message: validator.errors["errors"] });
+        return sendValidationErrors(res, validator);
     }
     User.findOne({ where: { email: req.body.email } }).then(async user => {
         if (!user) {
@@ -114,8 +118,8 @@ router.post('/forgot_password', function(req, res, next) {
             });
         } else {
             const token = crypto.randomBytes(20).toString('hex');
-            PasswordResetToken.destroy({ where: { 'user_id': user.id }}); //Asynchronously destroy old tokens
-            await PasswordResetToken.create({ token: token, expires: moment().utc().add(1, 'days'), user_id: user.user_id });
+            PasswordResetToken.destroy({ where: { 'user_id': user.userID }}); //Asynchronously destroy old tokens
+            await PasswordResetToken.create({ token: token, expires: moment().utc().add(1, 'days'), user_id: user.userID });
             const transporter = nodemailer.createTransport({
                 service: 'Gmail', // Assume we will be using gmail here; subject to change
                 auth: {
@@ -144,17 +148,20 @@ router.post('/forgot_password', function(req, res, next) {
             } else { // For testing purposes just return the token rather than send an email
                 return res.status(200).json({ 
                     error: false, 
-                    token: token
+                    data: {
+                        token: token
+                    }
                 });
             }
         }
     });
 });
 
-/*
-* Get: The unique reset-password-link
+
+/**
+* @Description - The unique reset-password-link
 */
-router.get('/reset_password/:token', async function(req, res, next) {
+router.get('/resetPassword/:token', async function(req, res, next) {
     let passwordResetToken = await PasswordResetToken.findOne({
         where: {
             "token": req.params.token,
@@ -164,37 +171,40 @@ router.get('/reset_password/:token', async function(req, res, next) {
     if (passwordResetToken) { // If the password reset token is valid just return it
         res.status(200).json({
             error: false,
-            token: passwordResetToken.token
+            data: {
+                token: passwordResetToken.token
+            }
         });
     } else { // Otherwise return an error
         res.status(400).json({
             error: true,
             message: "Your password reset token has expired or isn't valid. Please request a new one."
         });
-        let expired_token = await PasswordResetToken.findOne({ where: { "token": req.params.token }});
-        if (expired_token) {
-            let user = await expired_token.getUser();
-            PasswordResetToken.destroy({ where: { 'user_id': user.user_id }}); //Asynchronously destroy old tokens
+        let expiredToken = await PasswordResetToken.findOne({ where: { "token": req.params.token }});
+        if (expiredToken) {
+            let user = await expiredToken.getUser();
+            PasswordResetToken.destroy({ where: { 'user_id': user.userID }}); //Asynchronously destroy old tokens
         }
     }
 });
 
-/*
-* Put: Reset the password
+
+/**
+* @Description - Reset the password
 */
-router.put('/reset_password', async function(req, res, next) {
+router.put('/resetPassword', async function(req, res, next) {
     let validator = new Validator({
         password: req.body.password,
-        confirm_password: req.body.confirm_password,
+        confirmPassword: req.body.confirmPassword,
         token: req.body.token
       }, {
         password: 'required|regex:/((?=.*[0-9])(?=.*[a-z])(?=.*[A-Z]).{8,20})/',
-        confirm_password: 'required',
+        confirmPassword: 'required',
         token: 'required'
     });
     if (validator.fails()) {
-        return res.status(400).json({ error: true, message: validator.errors["errors"] });
-    } else if (req.body.confirm_password != req.body.password) {
+        return sendValidationErrors(res, validator);
+    } else if (req.body.confirmPassword != req.body.password) {
         return res.status(400).json({ error: true, message: "Password and password confirmation don't match. For your security please resubmit with matching passwords." });
     }
     let passwordResetToken = await PasswordResetToken.findOne({
@@ -228,24 +238,32 @@ router.put('/reset_password', async function(req, res, next) {
             error: true,
             message: "Your password reset token has expired or isn't valid. Please request a new one."
         });
-        let expired_token = await PasswordResetToken.findOne({ where: { "token": req.params.token }});
-        if (expired_token) { //Asynchronously destroy old tokens
-            let user = await expired_token.getUser();
-            PasswordResetToken.destroy({ where: { 'user_id': user.user_id }});
+        let expiredToken = await PasswordResetToken.findOne({ where: { "token": req.params.token }});
+        if (expiredToken) { //Asynchronously destroy old tokens
+            let user = await expiredToken.getUser();
+            PasswordResetToken.destroy({ where: { 'user_id': user.userID }});
         }
     }
 });
 
 
-router.get("/user_details", passport.authenticate('jwt', { session: false }), function (req, res) {
-    res.status(200).json(req.user);
+/**
+* @Protected
+* @Description - Gets the users full account details
+*/
+router.get("/userDetails", requireAuth, function (req, res) {
+    res.status(200).json({
+        error: false,
+        data: req.user
+    });
 });
 
 
-/*
-* Route for testing auth functionality
+/**
+* @Protected
+* @Description - Route for testing auth functionality
 */
-router.get("/secret", passport.authenticate('jwt', { session: false }), function (req, res) {
+router.get("/secret", requireAuth, function (req, res) {
     res.json("Success! You can not see this without a token");
 });
 

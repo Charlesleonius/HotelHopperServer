@@ -5,7 +5,9 @@ let express = require("express");
 let bodyParser = require("body-parser");
 let passport = require("passport");
 let passportJWT = require("passport-jwt");
-let cors = require('cors')
+let cors = require('cors');
+const YAML = require('yamljs');
+var swaggerUi = require('swagger-ui-express')
 
 /*
 * The db object contains a reference to the database connection pool as well as all of the models
@@ -13,10 +15,6 @@ let cors = require('cors')
 * To access a model use db.<model name>
 */
 let db = require('./models/index.js');
-
-//Controllers
-var auth = require('./controllers/auth.js');
-var popDest = require('./controllers/popular-destinations.js');
 
 const app = express();
 const server = require('http').createServer(app);
@@ -35,7 +33,7 @@ var strategy = new JwtStrategy(jwtOptions, function(jwt_payload, next) {
         if (user) {
             next(null, user);
         } else {
-            res.status(401);
+            next(null, null);
         }
     });
 });
@@ -47,10 +45,11 @@ app.use(passport.initialize());
 app.use(bodyParser.json({
     extended: true
 }));
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(YAML.load('./swagger.yaml')));
 
 //Start the application if a database connection is successfull and the schema is sychronized
 db.sequelize.authenticate().then(() => {
-    return db.sequelize.sync({ alter: true })
+    return db.sequelize.sync()
 }).then(() => {
     if (process.argv.slice(2).indexOf('--no-listener') == -1) {
         return server.listen(PORT);
@@ -62,6 +61,14 @@ db.sequelize.authenticate().then(() => {
 }).catch(err => {
     throw new Error('Database connection failed with error: ' + err);
 });
+
+
+//Controllers
+var authController = require('./controllers/auth.js');
+var popularDestinationsController = require('./controllers/popular-destinations.js');
+var hotelController = require('./controllers/hotels.js');
+var reservationsController = require('./controllers/reservations.js');
+
 /*
 * Define routes
 * Controllers should have their own route prefix. 
@@ -69,8 +76,10 @@ db.sequelize.authenticate().then(() => {
 * To do this just import the controller `require(./controllers/<controller name>.js)`
 * then set the controller as middleware with `app.use('/<controller name>', <imported controller>)`
 */
-app.use('/auth', auth);
-app.use('/popular-destinations', popDest);
+app.use('/auth', authController);
+app.use('/popularDestinations', popularDestinationsController);
+app.use('/hotels', hotelController);
+app.use('/reservations', reservationsController);
 app.get('/', (req, res) => res.send('Hello World!'));
 
 module.exports = {

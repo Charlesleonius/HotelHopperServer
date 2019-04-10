@@ -23,8 +23,8 @@ describe('Login with email and password', () => {
     before(function(done) {
         User.destroy({ where: { email: 'test@test.com' }}).then(() => {
             return User.create({
-                first_name: "John",
-                last_name: "Doe",
+                firstName: "John",
+                lastName: "Doe",
                 email: 'test@test.com', 
                 password: "$2b$10$IDmDD/VYelBhCsmBj2vALu6j7W7KuDsYcTL/58yyEkQKOFhM2m3.u" 
             });
@@ -76,8 +76,8 @@ describe('Signup with email and password', () => {
 
     it('It should return a JWT on signup', function(done) {
         let account = {
-            first_name: "John",
-            last_name: "Doe",
+            firstName: "John",
+            lastName: "Doe",
             email: "test@test.com",
             password: "Pa5word13!",
         }
@@ -127,7 +127,7 @@ describe('Protected endpoints should not be accessed without a valid JWT', () =>
 describe('Popular destinations', () => {
     it('It should return four cities and a link to download picture.', function(done) {
         chai.request(server)
-            .get('/popular-destinations')
+            .get('/popularDestinations')
             .end(function (err, res) {
                 res.should.have.status(200);
                 done();
@@ -140,8 +140,8 @@ describe('Get user details', () => {
     before(function(done) {
         User.destroy({ where: { email: 'test@test.com' }}).then(() => {
             return User.create({
-                first_name: "John",
-                last_name: "Doe",
+                firstName: "John",
+                lastName: "Doe",
                 email: 'test@test.com', 
                 password: "$2b$10$IDmDD/VYelBhCsmBj2vALu6j7W7KuDsYcTL/58yyEkQKOFhM2m3.u" 
             });
@@ -156,16 +156,41 @@ describe('Get user details', () => {
     });
     it('It should return the users details', function(done) {
         chai.request(server)
-            .get('/auth/user_details')
+            .get('/auth/userDetails')
             .set('Authorization', 'Bearer ' + token)
             .end(function (err, res) {
                 res.should.have.status(200);
-                res.body.first_name.should.eql('John');
-                res.body.last_name.should.eql('Doe');
+                res.body.data.firstName.should.eql('John');
+                res.body.data.lastName.should.eql('Doe');
                 done();
         });
     });
 
+}); 
+
+describe('Hotels', () => {
+    var payload = { email: 'test@test.com' };
+    token = jwt.sign(payload, global.jwtOptions.secretOrKey)
+    it('It should return the hotel\'s details', function(done) {
+        chai.request(server)
+            .get('/hotels/1')
+            .set('Authorization', 'Bearer ' + token)
+            .end(function (err, res) {
+                res.should.have.status(200);
+                res.body.data.should.not.eql(undefined);
+                done();
+        });
+    });
+    it('It should return matching hotels', function(done) {
+        chai.request(server)
+            .get('/hotels?latitude=37.3440232&longitude=-121.8738311&startDate=2019-04-08&endDate=2019-04-09&persons=1')
+            .set('Authorization', 'Bearer ' + token)
+            .end(function (err, res) {
+                res.should.have.status(200);
+                res.body.data.should.not.eql(undefined);
+                done();
+        });
+    });
 }); 
 
 after(function(done) {
