@@ -1,6 +1,10 @@
 swagger: "2.0"
 info:
-  description: "Backend API to support HotelHopper.cf"
+  description: |
+    Backend API to support HotelHopper.cf \
+    To see the standardized api responses see the models at the bottom\: 
+    SuccessfulResponse for 200, BadRequestResponse for 400, and UnauthorizedResponse for 401 \
+    More HTTP Status Codes may be added in the future and similar models will be made avialable.
   version: "1.0.0"
   title: "Hotel Hopper"
 host: "api.hotelhopper.cf"
@@ -357,6 +361,18 @@ securityDefinitions:
     name: "api_key"
     in: "header"
 definitions:
+  SuccessfulResponse:
+    type: object
+    properties:
+      error:
+        type: boolean
+      message:
+        type: string
+      data:
+        type: object
+        description: "Contains various data depending on the api"
+    required:
+    - error
   BadRequestResponse:
     type: object
     properties:
@@ -364,10 +380,18 @@ definitions:
         type: boolean
       message:
         type: string
+        description: "The first found validation error"
       validationErrors:
-        type: array
-        items:
-          type: string
+        type: object
+        properties:
+          <name of parameter>:
+            type: array
+            description: "Array of the problems with the parameter value"
+            items:
+              type: string
+    required:
+    - error
+    - message
   UnauthorizedResponse:
     type: object
     properties:
@@ -379,6 +403,9 @@ definitions:
           - "No user found with JWT"
           - "Invalid JWT format"
           - "Expired JWT"
+    required:
+    - error
+    - message
   HotelSearchResponse:
     type: object
     properties:
