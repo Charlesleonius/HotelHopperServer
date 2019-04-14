@@ -128,7 +128,7 @@ paths:
               error: false
               data:
                 user:
-                  userID: 1
+                  userId: 1
                   firstName: John
                   lastName: Doe
                   email: John.Doe@email.com
@@ -438,7 +438,7 @@ definitions:
   Hotel:    
     type: object
     properties:
-      hotelID:
+      hotelId:
         type: integer
       title: 
         type: string
