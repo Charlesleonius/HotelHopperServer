@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
-const { Hotel, HotelRoom, sequelize } = require('../models/index.js');
+const { Hotel, HotelRoom, HotelAmenity } = require('../models/index.js');
 const { requireAdmin, requireAuth, sendValidationErrors } = require('../middleware.js');
-const Sequelize = require("sequelize");
+const knex = require('../knex.js');
+const { raw } = require('objection');
 const Validator = require('validatorjs');
 const moment = require('moment');
 
@@ -12,42 +13,40 @@ const moment = require('moment');
  * @Admin
  * @Description - Takes scraped hotel objects and converts them hotelhopper hotel objects
  */
-router.put('/scrapedHotel', [requireAuth, requireAdmin], (req, res) => {
-    let geoLocation = {
-        type: 'Point',
-        coordinates: [req.body.longitude, req.body.latitude],
-        crs: { type: 'name', properties: { name: 'EPSG:4326'} }
-    }
-    Hotel.create({
+router.put('/scrapedHotel', [requireAuth, requireAdmin], async (req, res) => {
+    let hotel = await Hotel.query().insert({
         title: req.body.name,
         state: req.body.address.addressRegion,
         country: req.body.address.addressCountry,
         street: req.body.address.addressLocality,
         city: req.body.city,
         zip: req.body.address.postalCode,
-        imageURL: req.body.image,
+        image_url: req.body.image,
         rating: req.body.aggregateRating.ratingValue,
         rating_count: req.body.aggregateRating.reviewCount,
-        mapURL: req.body.hasMap,
+        map_url: req.body.hasMap,
         description: req.body.description,
         latitude: req.body.latitude,
         longitude: req.body.longitude,
-        position: geoLocation,
+        position: raw("ST_SetSRID(ST_MakePoint(??, ??),4326)", req.body.longitude, req.body.latitude),
         address: req.body.address.streetAddress,
         stars: req.body.stars
-    }).then(result => {
-        req.body.rooms.forEach(room => {
-            HotelRoom.create({
-                hotelID: result.hotelID,
-                roomTypeID: room.room_type_id,
-                price: room.price,
-                roomCount: room.count
-            })
-        });
-        res.status(200).send("OK");
-    }).catch(err => {
-        res.status(400);
     });
+    req.body.rooms.forEach(async room => {
+        let hotelRoom = await HotelRoom.query().insert({
+            hotel_id: hotel.hotelId,
+            room_type_id: room.roomTypeId,
+            price: room.price,
+            room_count: room.count
+        })
+    });
+    req.body.amenities.forEach(async amenityId => {
+        let amenity = await HotelAmenity.query().insert({ 
+            hotel_id: hotel.hotelId,
+            amenity_id: amenityId
+        });
+    });
+    res.status(200).send("OK");
 });
 
 
@@ -55,7 +54,7 @@ router.put('/scrapedHotel', [requireAuth, requireAdmin], (req, res) => {
  * @Protected
  * @Description - Returns hotels that meet the users travel plans
  */
-router.get('/', requireAuth, async (req, res) =>{
+router.get('/', async (req, res) =>{
     let validator = new Validator({
         longitude: req.query.longitude,
         latitude: req.query.latitude,
@@ -83,68 +82,57 @@ router.get('/', requireAuth, async (req, res) =>{
         return sendValidationErrors(res, validator);
     } else if (startDate < todaysDate || endDate < startDate) {
         return res.status(400).json({
-                    error: true,
-                    message: "Invalid date range. Make sure your reservation isn't in the past!"
-                }); 
+            error: true,
+            message: "Invalid date range. Make sure your reservation isn't in the past!"
+        }); 
     }
     let perPage = req.query.perPage || 15;
     let page = req.query.page || 1;
-    // Make a geometric point from the given lat and long
-    let searchPoint = Sequelize.fn('ST_MakePoint', 
-                        req.query.longitude, 
-                        req.query.latitude
-                    );
-    // Find all hotels within a 5 mile radius of the given point
-    let hotels = await Hotel.findAll({
-        offset: (page - 1) * perPage, // Converts page to zero indexing and then gets the total offset
-        limit: perPage, // Only return the requested amount of objects
-        where: Sequelize.where(
-            Sequelize.fn('ST_DWithin',
-                Sequelize.col('position'),
-                Sequelize.fn('ST_SetSRID', searchPoint, 4326),
-                0.1 // Distance in degress lat, long. Conversion: 1.0 | 111 km
-            ), true
-        ),
-        order: [['rating', 'DESC']]
-    })
+    let hotels = await Hotel.query()
+                        .orderBy('rating', 'desc')
+                        .limit(perPage)
+                        .offset(page)
+                        .eager('hotelAmenities.amenity');
     // For each hotel room, run a seperate query to get the available rooms
     let fullHotels = [];
     for (var i in hotels) {
         let hotel = hotels[i];
         // The following query finds the amount of each room type that is not taken during the requested time period.
-        let rooms = await sequelize.query(
-            `(
-                SELECT room_type.room_type_id, room_type.title, room_type.description, room_type.persons, room_type.beds,
-                (
-                    CAST((hotel_room.room_count - (
-                        SELECT count(*) FROM reserved_room
-                        WHERE (
-                            (start_date >= :search_start_date AND start_date <=:search_start_date)
-                            OR (end_date >= :search_end_date AND end_date <= :search_end_date)
-                        )
-                        AND reserved_room.hotel_id = hotel_room.hotel_id
-                        AND reserved_room.room_type_id = hotel_room.room_type_id
-                        AND reserved_room.hotel_id = hotel.hotel_id
-                    )) as INTEGER)
-                ) as available
-                from hotel
-                join hotel_room on hotel_room.hotel_id = hotel.hotel_id
-                join room_type on room_type.room_type_id = hotel_room.room_type_id
-                where hotel.hotel_id = ` + hotel.hotelID + `
-            )`,
-            { 
-                replacements: { search_start_date: startDate, search_end_date: endDate },
-                type: sequelize.QueryTypes.SELECT
-            }
+        let rooms = await knex.raw(
+            '( \
+                SELECT room_type.room_type_id as "roomTypeId", room_type.title, room_type.description, room_type.persons, room_type.beds, \
+                ( \
+                    CAST((hotel_room.room_count - ( \
+                        SELECT count(*) FROM reserved_room \
+                        WHERE ( \
+                            (start_date >= ? AND start_date <= ?) \
+                            OR (end_date >= ? AND end_date <= ?) \
+                        ) \
+                        AND reserved_room.hotel_id = hotel_room.hotel_id \
+                        AND reserved_room.room_type_id = hotel_room.room_type_id \
+                        AND reserved_room.hotel_id = hotel.hotel_id \
+                    )) as INTEGER) \
+                ) as available \
+                from hotel \
+                join hotel_room on hotel_room.hotel_id = hotel.hotel_id \
+                join room_type on room_type.room_type_id = hotel_room.room_type_id \
+                where hotel.hotel_id = ? \
+            )',
+            [
+                startDate, 
+                endDate,
+                startDate, 
+                endDate,
+                hotel.hotelId
+            ]
         );
-        // Add up the total people the available rooms can accomodate.
         var totalPersons = 0;
-        for (var i in rooms) {
-            totalPersons += rooms[i].persons * rooms[i].available;
-        }
-        // If the hotel can accomodate the requested persons then add it to the return
+        // Add up the total people the available rooms can accomodate.
+        rooms.rows.forEach(room => {
+            totalPersons += room.persons * room.available;
+        });
         if (totalPersons >= req.query.persons) {
-            hotel.dataValues.rooms = rooms
+            hotel.rooms = rooms.rows;
             fullHotels.push(hotel);
         }
     }
@@ -159,19 +147,16 @@ router.get('/', requireAuth, async (req, res) =>{
  * @Protected
  * @Description - Returns the details of a specific hotel
  */
-router.get('/:id', requireAuth, async (req, res) =>{
+router.get('/:id', async (req, res) =>{
     let validator = new Validator({
         id: req.params.id
       }, {
         id: 'required|numeric|min:1'
     });
-    if (validator.fails()) {
-        return sendValidationErrors(res, validator);
-    }
+    if (validator.fails()) return sendValidationErrors(res, validator);
     // Find the hotel given the id
-    let hotel = await Hotel.findOne({
-        where: { hotelID: req.params.id }
-    })
+    let hotel = await Hotel.query().findById(req.params.id);
+    if (!hotel) return res.status(404).json({ error: true, message: "No hotel found with id: " + req.params.id});
     return res.status(200).json({
         error: false,
         data: hotel
@@ -183,7 +168,7 @@ router.get('/:id', requireAuth, async (req, res) =>{
  * @Protected
  * @Description - Returns the details of a specific hotel and the available rooms in the time frame
  */
-router.get('/:id/rooms', requireAuth, async (req, res) =>{
+router.get('/:id/rooms', async (req, res) =>{
     let validator = new Validator({
         id: req.params.id,
         startDate: req.query.startDate,
@@ -196,48 +181,49 @@ router.get('/:id/rooms', requireAuth, async (req, res) =>{
         "regex.startDate": "Please use the date format yyyy-mm-dd",
         "regex.endDate": "Please use the date format yyyy-mm-dd"
     });
+    if (validator.fails()) return sendValidationErrors(res, validator);
     let startDate = moment(req.query.startDate).format("YYYY-MM-DD");
     let endDate = moment(req.query.endDate).format('YYYY-MM-DD');
     let todaysDate = moment().format("YYYY-MM-DD");
-    if (validator.fails()) {
-        return sendValidationErrors(res, validator);
-    } else if (startDate < todaysDate || endDate < startDate) {
+    if (startDate < todaysDate || endDate < startDate) {
         return res.status(400).json({
-                    error: true,
-                    message: "Invalid date range. Make sure your reservation isn't in the past!"
-                }); 
+            error: true,
+            message: "Invalid date range. Make sure your reservation isn't in the past!"
+        }); 
     }
     // Find the hotel given the id
-    let hotel = await Hotel.findOne({
-        where: { hotelID: req.params.id }
-    })
-    // Find the number of available rooms of each type given the time frame
-    let rooms = await sequelize.query(
-        `(
-            SELECT room_type.room_type_id, room_type.title, room_type.description, room_type.persons, room_type.beds,
-            (
-                CAST((hotel_room.room_count - (
-                    SELECT count(*) FROM reserved_room
-                    WHERE (
-                        (start_date >= :search_start_date AND start_date <=:search_start_date)
-                        OR (end_date >= :search_end_date AND end_date <= :search_end_date)
-                    )
-                    AND reserved_room.hotel_id = hotel_room.hotel_id
-                    AND reserved_room.room_type_id = hotel_room.room_type_id
-                    AND reserved_room.hotel_id = hotel.hotel_id
-                )) as INTEGER)
-            ) as available
-            from hotel
-            join hotel_room on hotel_room.hotel_id = hotel.hotel_id
-            join room_type on room_type.room_type_id = hotel_room.room_type_id
-            where hotel.hotel_id = ` + hotel.hotelID + `
-        )`,
-        { 
-            replacements: { search_start_date: req.query.startDate, search_end_date: req.query.endDate },
-            type: sequelize.QueryTypes.SELECT
-        }
+    let hotel = await Hotel.query().findById(req.params.id);
+    if (!hotel) return res.status(404).json({ error: true, message: "No hotel found with id: " + req.params.id});
+    // The following query finds the amount of each room type that is not taken during the requested time period.
+    let rooms = await knex.raw(
+        '( \
+            SELECT room_type.room_type_id as "roomTypeId", room_type.title, room_type.description, room_type.persons, room_type.beds, \
+            ( \
+                CAST((hotel_room.room_count - ( \
+                    SELECT count(*) FROM reserved_room \
+                    WHERE ( \
+                        (start_date >= ? AND start_date <= ?) \
+                        OR (end_date >= ? AND end_date <= ?) \
+                    ) \
+                    AND reserved_room.hotel_id = hotel_room.hotel_id \
+                    AND reserved_room.room_type_id = hotel_room.room_type_id \
+                    AND reserved_room.hotel_id = hotel.hotel_id \
+                )) as INTEGER) \
+            ) as available \
+            from hotel \
+            join hotel_room on hotel_room.hotel_id = hotel.hotel_id \
+            join room_type on room_type.room_type_id = hotel_room.room_type_id \
+            where hotel.hotel_id = ? \
+        )',
+        [
+            startDate, 
+            endDate,
+            startDate, 
+            endDate,
+            req.params.id
+        ]
     );
-    hotel.dataValues.rooms = rooms;
+    hotel.rooms = rooms.rows;
     return res.status(200).json({
         error: false,
         data: hotel

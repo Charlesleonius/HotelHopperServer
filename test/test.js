@@ -1,11 +1,12 @@
-var assert = require('assert');
-var chai = require('chai')
-var chaiHttp = require('chai-http');
+const assert = require('assert');
+const chai = require('chai')
+const chaiHttp = require('chai-http');
 chai.use(chaiHttp);
-let server = require('../app').server;
-let should = chai.should();
-let jwt = require('jsonwebtoken');
-require('../models/index.js').User;
+const server = require('../app').server;
+const should = chai.should();
+const jwt = require('jsonwebtoken');
+const { User } = require('../models/index.js');
+const moment = require('moment');
 
 /*
 * Place holder to make sure tests are running on jenkins
@@ -21,8 +22,8 @@ describe('Array', function() {
 
 describe('Login with email and password', () => {
     before(function(done) {
-        User.destroy({ where: { email: 'test@test.com' }}).then(() => {
-            return User.create({
+        User.query().delete().where('email', '=', 'test@test.com').then(() => {
+            return User.query().insert({
                 firstName: "John",
                 lastName: "Doe",
                 email: 'test@test.com', 
@@ -54,7 +55,7 @@ describe('Login with email and password', () => {
     });
 
     after(function(done) {
-        User.destroy({ where: { email: 'test@test.com' }}).then(() => {
+        User.query().delete().where('email', '=', 'test@test.com').then(() => {
             done();
         }).catch(err => {
             done(err);
@@ -67,7 +68,7 @@ describe('Login with email and password', () => {
 describe('Signup with email and password', () => {
 
     before(function(done) {
-        User.destroy({where: { email: 'test@test.com' }}).then(() => {
+        User.query().delete().where('email', '=', 'test@test.com').then(() => {
             done();
         }).catch(err => {
             done(err);
@@ -94,7 +95,7 @@ describe('Signup with email and password', () => {
     });
 
     after(function(done) {
-        User.destroy({ where: { email: 'test@test.com' }}).then(() => {
+        User.query().delete().where('email', '=', 'test@test.com').then(() => {
             done();
         }).catch(err => {
             done(err);
@@ -115,7 +116,7 @@ describe('Protected endpoints should not be accessed without a valid JWT', () =>
     });
 
     after(function(done) {
-        User.destroy({ where: { email: 'test@test.com' }}).then(() => {
+        User.query().delete().where('email', '=', 'test@test.com').then(() => {
             done();
         }).catch(err => {
             done(err);
@@ -138,8 +139,8 @@ describe('Popular destinations', () => {
 describe('Get user details', () => {
     token = ""
     before(function(done) {
-        User.destroy({ where: { email: 'test@test.com' }}).then(() => {
-            return User.create({
+        User.query().delete().where('email', '=', 'test@test.com').then(() => {
+            return User.query().insert({
                 firstName: "John",
                 lastName: "Doe",
                 email: 'test@test.com', 
@@ -181,9 +182,13 @@ describe('Hotels', () => {
                 done();
         });
     });
+    let startDate = moment().format("YYYY-MM-DD");
+    let endDate = moment().add(1, 'days').format("YYYY-MM-DD");
+    console.log(startDate);
+    console.log(endDate);
     it('It should return matching hotels', function(done) {
         chai.request(server)
-            .get('/hotels?latitude=37.3440232&longitude=-121.8738311&startDate=2019-04-08&endDate=2019-04-09&persons=1')
+            .get('/hotels?latitude=37.3440232&longitude=-121.8738311&startDate=' + startDate + '&endDate=' + endDate + '&persons=1')
             .set('Authorization', 'Bearer ' + token)
             .end(function (err, res) {
                 res.should.have.status(200);

@@ -3,7 +3,7 @@ let passport = require("passport");
 let requireAuth = passport.authenticate('jwt', { session: false });
 
 let requireAdmin = function (req, res, next) {
-    if (!req.user || !req.user.isAdmin) {
+    if (!req.user || !req.user.is_admin) {
         res.status(401).json({
             error: true,
             message: "This API requires admin privelages"
@@ -12,6 +12,10 @@ let requireAdmin = function (req, res, next) {
         next()
     }
 };
+
+/**
+ * Helper functions
+ */
 
 let sendValidationErrors = function(res, validator) {
     let validationError = Object.keys(validator.errors["errors"]).map(function(k) { return validator.errors["errors"][k][0]; })[0];
@@ -22,9 +26,17 @@ let sendValidationErrors = function(res, validator) {
     });
 }
 
+let sendErrorMessage = function(res, status, message) {
+    return res.status(status).json({ 
+            error: true, 
+            message: message
+    });
+}
+
 module.exports = {
     requireAuth,
     requireAdmin,
-    sendValidationErrors
+    sendValidationErrors,
+    sendErrorMessage
 };
 
