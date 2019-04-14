@@ -7,7 +7,7 @@ info:
     More HTTP Status Codes may be added in the future and similar models will be made avialable.
   version: "1.0.0"
   title: "Hotel Hopper"
-host: "api.hotelhopper.cf"
+host: "staging-api.hotelhopper.cf"
 tags:
 - name: "auth"
   description: "Authentication methods"
@@ -128,7 +128,7 @@ paths:
               error: false
               data:
                 user:
-                  userID: 1
+                  userId: 1
                   firstName: John
                   lastName: Doe
                   email: John.Doe@email.com
@@ -438,7 +438,7 @@ definitions:
   Hotel:    
     type: object
     properties:
-      hotelID:
+      hotelId:
         type: integer
       title: 
         type: string

@@ -1,24 +1,25 @@
-
 //Imports
-require('dotenv').config()
-let express = require("express");
-let bodyParser = require("body-parser");
-let passport = require("passport");
-let passportJWT = require("passport-jwt");
-let cors = require('cors');
+require('dotenv').config();
+const express = require("express");
+const bodyParser = require("body-parser");
+const passport = require("passport");
+const passportJWT = require("passport-jwt");
+const cors = require('cors');
 const YAML = require('yamljs');
-var swaggerUi = require('swagger-ui-express')
+const swaggerUi = require('swagger-ui-express');
+const User = require('./models/auth/user.js');
+const nodemailer = require('nodemailer');
 
-/*
-* The db object contains a reference to the database connection pool as well as all of the models
-* To access the connection pool use db.sequelize
-* To access a model use db.<model name>
-*/
-let db = require('./models/index.js');
-
+//Constants || Singletons
 const app = express();
-const server = require('http').createServer(app);
 const PORT = process.env.PORT || 3000;
+const emailTransporter = nodemailer.createTransport({
+    service: 'Gmail',
+    auth: {
+        user: `${process.env.EMAIL_ADDRESS}`,
+        pass: `${process.env.EMAIL_PASSWORD}`
+    }
+});
 
 //JWT Helpers
 var ExtractJwt = passportJWT.ExtractJwt;
@@ -28,40 +29,20 @@ jwtOptions.jwtFromRequest = ExtractJwt.fromAuthHeaderAsBearerToken();
 jwtOptions.secretOrKey = 'wEKNYENCpc4HvogKJs0pa1XPD5vbx4ZsxaYzZ8SUwMGBrgOv0A4zK2ZZni2jfFOAkGPdrj7gwJI4j6W2IOI3fT0gYjBmjOKu7FWK';
 
 //Define authentication strategy for JWT
-var strategy = new JwtStrategy(jwtOptions, function(jwt_payload, next) {
-    User.findOne({where: { email: jwt_payload.email }}).then(user => {
-        if (user) {
-            next(null, user);
-        } else {
-            next(null, null);
-        }
-    });
+var strategy = new JwtStrategy(jwtOptions, async function(jwt_payload, next) {
+    let user = await User.query().where('email', '=', jwt_payload.email).first();
+    if (user) return next(null, user);
+    next(null, null);
 });
-passport.use(strategy);
 
 //Load middleware
 app.use(cors())
+passport.use(strategy);
 app.use(passport.initialize());
 app.use(bodyParser.json({
     extended: true
 }));
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(YAML.load('./swagger.yaml')));
-
-//Start the application if a database connection is successfull and the schema is sychronized
-db.sequelize.authenticate().then(() => {
-    return db.sequelize.sync()
-}).then(() => {
-    if (process.argv.slice(2).indexOf('--no-listener') == -1) {
-        return server.listen(PORT);
-    } else {
-        process.exit(0);
-    }
-}).then(() => {
-    console.log("Database synchronized and server listening on port: " + PORT)
-}).catch(err => {
-    throw new Error('Database connection failed with error: ' + err);
-});
-
 
 //Controllers
 var authController = require('./controllers/auth.js');
@@ -82,7 +63,12 @@ app.use('/hotels', hotelController);
 app.use('/reservations', reservationsController);
 app.get('/', (req, res) => res.send('Hello World!'));
 
+const server = app.listen(PORT, () => {
+    console.log('Example app listening at port %s', server.address().port);
+});
+
 module.exports = {
     app,
-    server
+    server,
+    emailTransporter
 }
