@@ -1,36 +1,8 @@
-let Sequelize = require('sequelize');
+const { Model } = require('objection');
 
-module.exports = function(sequelize, DataTypes) {
-    return Reservation = sequelize.define('reservation', {
-        reservationID: {
-            type: Sequelize.INTEGER,
-            primaryKey: true,
-            autoIncrement: true,
-            field: 'reservation_id'
-        },
-        hotelID: {
-            type: Sequelize.INTEGER,
-            field: 'hotel_id'
-        },
-        roomTypeID: {
-            type: Sequelize.INTEGER,
-            field: 'room_type_id'
-        },
-        userID: {
-            type: Sequelize.INTEGER,
-            field: 'user_id'
-        },
-        startDate: {
-            type: Sequelize.DATEONLY,
-            field: 'start_date'
-        },
-        endDate: {
-            type: Sequelize.DATEONLY,
-            field: 'end_date'
-        },
-        totalCost: {
-            type: Sequelize.DECIMAL,
-            field: 'total_cost'
-        }
-    });
-};
+class Reservation extends Model {
+    static get tableName() { return 'reservation'; }
+    static get idColumn() { return 'reservation_id'; }
+}
+
+module.exports = Reservation;

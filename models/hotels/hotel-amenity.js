@@ -1,21 +1,21 @@
-let Sequelize = require('sequelize');
+const { Model } = require('objection');
 
-module.exports = function(sequelize, DataTypes) {
-    const HotelAmenity = sequelize.define('hotel_amenity', {
-        hotelAmenityID: {
-            type: Sequelize.INTEGER,
-            primaryKey: true,
-            autoIncrement: true,
-            field: 'hotel_amenity_id'
-        },
-        hotelID: {
-            type: Sequelize.INTEGER,
-            field: 'hotel_id'
-        },
-        amenityID: {
-            type: Sequelize.INTEGER,
-            field: 'amenity_id'
-        }
-    });
-    return HotelAmenity;
-};
+class HotelAmenity extends Model {
+    static get tableName() { return 'hotel_amenity'; }
+    static get idColumn() { return ['amenity_id', 'hotel_id']; }
+    static get relationMappings() {
+        const Amenity = require('./amenity.js');
+        return {
+            amenity: {
+                relation: Model.HasOneRelation,
+                modelClass: Amenity,
+                join: {
+                    from: 'hotel_amenity.amenityId',
+                    to: 'amenity.amenityId'
+                }
+            }
+        };
+    }
+}
+
+module.exports = HotelAmenity;

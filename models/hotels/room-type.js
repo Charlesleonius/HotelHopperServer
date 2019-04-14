@@ -1,17 +1,8 @@
-let Sequelize = require('sequelize');
+const { Model } = require('objection');
 
-module.exports = function(sequelize, DataTypes) {
-    const RoomType = sequelize.define('room_type', {
-        roomTypeID: {
-            type: Sequelize.INTEGER,
-            primaryKey: true,
-            autoIncrement: true,
-            field: 'room_type_id'
-        },
-        title: Sequelize.STRING,
-        description: Sequelize.STRING,
-        persons: Sequelize.INTEGER,
-        beds: Sequelize.INTEGER
-    });
-    return RoomType;
-};
+class RoomType extends Model {
+    static get tableName() { return 'room_type'; }
+    static get idColumn() { return 'room_type_id'; }
+}
+
+module.exports = RoomType;

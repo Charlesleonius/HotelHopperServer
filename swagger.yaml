@@ -1,0 +1,489 @@
+swagger: "2.0"
+info:
+  description: |
+    Backend API to support HotelHopper.cf \
+    To see the standardized api responses see the models at the bottom\: 
+    SuccessfulResponse for 200, BadRequestResponse for 400, and UnauthorizedResponse for 401 \
+    More HTTP Status Codes may be added in the future and similar models will be made avialable.
+  version: "1.0.0"
+  title: "Hotel Hopper"
+host: "staging-api.hotelhopper.cf"
+tags:
+- name: "auth"
+  description: "Authentication methods"
+- name: "popular destinations"
+- name: "hotels"
+  description: "Hotel search, details and more"
+schemes:
+- "https"
+
+paths:
+  /auth/login:
+    post:
+      tags:
+      - "auth"
+      summary: "Returns auth token and user details"
+      description: "Returns a new JWT token with a 24 hour expiry time. Use this token with all authentication requests using the Header('Authorization, 'bearer \\<JWT>')."
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - in: body
+        name: body
+        schema:
+            type: object
+            required:
+              - email
+              - password
+            properties:
+              email:
+                type: string
+              password: 
+                type: string
+      responses:
+        200:
+          description: "OK"
+          schema:
+            type: object
+            example:
+              error: false
+              data:
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImNoYXJsZXNAc2hlYXJzaGFyZS5jb20iLCJpYXQiOjE1NTQ3OTAwNDd9.uLS_-XvoKyAkKHLxlWOA4WkVWf_j3oe_Ss_X2c_H6s4"
+                user:
+                  firstName: John
+                  lastName: Doe
+                  email: john.doe@email.com
+                  isAdmin: false
+        400:
+          description: "Bad request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+            
+  /auth/register:
+    post:
+      tags:
+      - "auth"
+      summary: "Returns an auth token for further authentication"
+      description: "Creates a new user and returns a JWT token with a 24 hour expiry time. Use this token with all authentication requests using the Header('Authorization, 'bearer \\<JWT>')."
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - in: body
+        name: body
+        schema:
+            type: object
+            required:
+              - firstName
+              - lastName
+              - email
+              - password
+            properties:
+              firstName:
+                type: string
+              lastName:
+                type: string
+              email:
+                type: string
+              password: 
+                type: string
+      responses:
+        200:
+          description: "OK"
+          schema:
+            type: object
+            example:
+              error: false
+              data:
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImNoYXJsZXNAc2hlYXJzaGFyZS5jb20iLCJpYXQiOjE1NTQ3OTAwNDd9.uLS_-XvoKyAkKHLxlWOA4WkVWf_j3oe_Ss_X2c_H6s4"
+        400:
+          description: "Bad request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+            
+  /auth/getUserDetails:
+    get:
+      tags:
+      - "auth"
+      summary: "Returns user details based on JWT token"
+      description: "Returns user details based on JWT token. The JWT token must not be expired."
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: Authorization
+        in: header
+        description: JWT bearer token given on login or signup. Should be in the format 'bearer \<JWT>'.
+        required: true
+        type: string
+      responses:
+        200:
+          description: "OK"
+          schema:
+            type: object
+            example:
+              error: false
+              data:
+                user:
+                  userId: 1
+                  firstName: John
+                  lastName: Doe
+                  email: John.Doe@email.com
+                  isAdmin: false
+        401:
+          description: "Unauthorized"
+          schema:
+            $ref: '#/definitions/UnauthorizedResponse'
+  
+  /auth/forgotPassword:
+    post:
+      tags:
+      - "auth"
+      summary: "Sends a reset password link to the provided email."
+      description: "Sends a reset password link to the provided email."
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - in: body
+        name: body
+        schema:
+            type: object
+            required:
+              - email
+            properties:
+              email:
+                type: string
+      responses:
+        200:
+          description: "OK"
+          schema:
+            type: object
+            example:
+              error: false
+              message: "We've sent a link to your email to reset your password. It expires in 24 hours."
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+            
+  /auth/resetPassword/<token>:
+    get:
+      tags:
+      - "auth"
+      summary: "Verifies the password reset token is still valid"
+      description: "Verifies the password reset token is still valid"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      responses:
+        200:
+          description: "OK"
+          schema:
+            type: object
+            example:
+              error: false
+              data:
+                token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6ImNoYXJsZXNAc2hlYXJzaGFyZS5jb20iLCJpYXQiOjE1NTQ3OTAwNDd9.uLS_-XvoKyAkKHLxlWOA4WkVWf_j3oe_Ss_X2c_H6s4"
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+            
+  /auth/resetPassword:
+    patch:
+      tags:
+      - "auth"
+      summary: "Resets the users password given a valid reset token"
+      description: "Resets the users password given a valid reset token."
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - in: body
+        name: body
+        schema:
+            type: object
+            required:
+              - email
+              - password
+              - confirmPassword
+              - token
+            properties:
+              email:
+                type: string
+              password:
+                type: string
+              confirmPassword:
+                type: string
+              token:
+                type: string
+      responses:
+        200:
+          description: "OK"
+          schema:
+            type: object
+            example:
+              error: false
+              message: "Your password has been succesfully updated. Please log in to get a new token."
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+            
+  /popularDestinations:
+    get:
+      tags:
+      - "popular destinations"
+      summary: "Returns popularly searched cities "
+      description: "Returns the city name and image url for our 4 most popular destinations."
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      responses:
+        200:
+          description: "OK"
+          schema:
+            $ref: '#/definitions/PopularCitiesResponse'
+
+  #Hotels  
+  /hotels/hotels:
+    get:
+      tags:
+      - "hotels"
+      summary: "Returns an array of hotels"
+      description: "Returns an array of hotels based on the given searh parameters. Pagination can be acheived using the `page` and `perPage` parameters. By default `page` is **1** and `perPage` is **15**. Only hotels which have enough rooms to acommodate the number of `persons` will be returned. Hotels will also be restricted a 5 mile radius from the given coordinates."
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: Authorization
+        in: header
+        description: JWT bearer token given on login or signup. Should be in the format 'bearer \<JWT>'.
+        required: true
+        type: string
+      - name: latitude
+        in: query
+        type: number
+        required: true
+        description: 'Provide a float value for the latitude of the city center being searched. Ex: 37.3440232'
+      - name: longitude
+        in: query
+        type: number
+        required: true
+        description: 'Provide a float value for the longitude of the city center being searched. Ex: -121.8738311'
+      - name: startDate
+        in: query
+        type: string
+        required: true
+        description: 'Must be a date in the format YYYY-MM-DD'
+      - name: endDate
+        in: query
+        type: string
+        required: true
+        description: 'Must be a date in the format YYYY-MM-DD'
+      - name: persons
+        in: query
+        type: integer
+        required: true
+        description: 'The amount of people traveling'
+      - name: page
+        in: query
+        type: integer
+        description: 'Skips (page * perPage) number of hotels'
+        default: 1
+      - name: perPage
+        in: query
+        type: integer
+        description: 'The number of hotels to be returned'
+        default: 15
+      responses:
+        200:
+          description: "OK"
+          schema:
+            $ref: '#/definitions/HotelSearchResponse'
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+          
+  /hotels/:id/rooms:
+    get:
+      tags:
+      - "hotels"
+      summary: "Returns a hotels details and the available rooms"
+      description: "Returns the full details of the hotel and the available rooms given the `startDate` and `endDate` of the trip."
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: Authorization
+        in: header
+        description: JWT bearer token given on login or signup. Should be in the format 'bearer \<JWT>'.
+        required: true
+        type: string
+      - name: startDate
+        in: query
+        type: string
+        required: true
+        description: 'Must be a date in the format YYYY-MM-DD'
+      - name: endDate
+        in: query
+        type: string
+        required: true
+        description: 'Must be a date in the format YYYY-MM-DD'
+      responses:
+        200:
+          description: "OK"
+          schema:
+            $ref: '#/definitions/HotelInfoResponse'
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+        401:
+          description: "Unauthorized"
+          schema:
+            $ref: '#/definitions/UnauthorizedResponse'
+            
+securityDefinitions:
+  api_key:
+    type: "apiKey"
+    name: "api_key"
+    in: "header"
+definitions:
+  SuccessfulResponse:
+    type: object
+    properties:
+      error:
+        type: boolean
+      message:
+        type: string
+      data:
+        type: object
+        description: "Contains various data depending on the api"
+    required:
+    - error
+  BadRequestResponse:
+    type: object
+    properties:
+      error:
+        type: boolean
+      message:
+        type: string
+        description: "The first found validation error"
+      validationErrors:
+        type: object
+        properties:
+          <name of parameter>:
+            type: array
+            description: "Array of the problems with the parameter value"
+            items:
+              type: string
+    required:
+    - error
+    - message
+  UnauthorizedResponse:
+    type: object
+    properties:
+      error:
+        type: boolean
+      message:
+        type: string
+        enum:
+          - "No user found with JWT"
+          - "Invalid JWT format"
+          - "Expired JWT"
+    required:
+    - error
+    - message
+  HotelSearchResponse:
+    type: object
+    properties:
+      error:
+        type: boolean
+      data:
+        type: array
+        items:
+          $ref: '#/definitions/Hotel'
+  HotelInfoResponse:
+    type: object
+    properties:
+      error:
+        type: boolean
+      data:
+        $ref: '#/definitions/Hotel'
+  PopularCitiesResponse:
+    type: object
+    properties:
+      error:
+        type: boolean
+    example:
+      error: false
+      data:
+        destinations:
+          - city: "Chicago"
+            url: "https://s3.amazonaws.com/hotel-hopper-bucket1/chicago.png"
+          - city: "Los Angeles"
+            url: "https://s3.amazonaws.com/hotel-hopper-bucket1/los-angeles.png"
+  Hotel:    
+    type: object
+    properties:
+      hotelId:
+        type: integer
+      title: 
+        type: string
+      description:
+        type: string
+      street:
+        type: string
+      city:
+        type: string
+      state:
+        type: string
+      zip:
+        type: string
+      country:
+        type: string
+      address:
+        type: string
+      mapURL:
+        type: string
+      imageURL:
+        type: string
+      stars:
+        type: integer
+      rating:
+        type: integer
+      latitude:
+        type: number
+      longitude:
+        type: number
+      rooms:
+        type: array
+        items: 
+          type: object
+          properties: 
+            title:
+              type: string
+            description:
+              type: string
+            persons:
+              type: integer
+            beds:
+              type: integer
+            available:
+              type: integer
+            
+externalDocs:
+  description: "More information can be found on at the github repo"
+  url: "https://github.com/CharlesLeonius/HotelHopperServer"

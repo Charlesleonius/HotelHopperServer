@@ -27,19 +27,23 @@ router.get('/', (req, res) => {
             const dlLink = "https://s3.amazonaws.com/hotel-hopper-bucket1/";
             const contents = data.Contents;
             const length = data.Contents.length;
-            // // for(var i = 0; i < length; i++) {
-            // //     var city = contents[i].Key;
-            // //     city = city.replace('-', ' ');
-            // //     city = city.replace('.png', '');
-            // //     city = city.replace(/\b\w/g, l => l.toUpperCase());
-            // //     destination = {
-            // //         city: city,
-            // //         url: dlLink + contents[i].Key
-            // //     };
-            //     destinations.push(destination);
-            // }
-            res.send(destinations);
-            return;
+            for(var i = 0; i < length; i++) {
+                var city = contents[i].Key;
+                city = city.replace('-', ' ');
+                city = city.replace('.png', '');
+                city = city.replace(/\b\w/g, l => l.toUpperCase());
+                destination = {
+                    city: city,
+                    url: dlLink + contents[i].Key
+                };
+                destinations.push(destination);
+            }
+            return res.status(200).json({
+                error: false,
+                data: {
+                    destinations
+                }
+            });
         }
     });
 });
@@ -53,30 +57,12 @@ router.post('/upload', upload.single('file'), (req, res) => {
         Key: req.file.originalname, // pass key
         Body: req.file.buffer // pass file body
     };
-
     s3Client.upload(uploadParams, (err, data) => {
         if (err) {
             res.status(500).json({ error: "Error -> " + err });
         }
         res.json({ message: 'File uploaded successfully! -> keyname = ' + req.file.originalname });
     });
-});
-
-/**
- * 
- */
-router.get('/:cityName', (req, res) => {
-    const city = req.params.cityName;
-    // TODO: validation
-    const getParams = {
-        Bucket: process.env.BUCKET,
-        Key: city
-    }
-    var fileStream = s3Client.getObject(getParams).createReadStream();
-    if (fileStream) {
-        fileStream.pipe(res);
-        return;
-    }
 });
 
 module.exports = router

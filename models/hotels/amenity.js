@@ -1,18 +1,8 @@
-let Sequelize = require('sequelize');
+const { Model } = require('objection');
 
-module.exports = function(sequelize, DataTypes) {
-    const Amenity = sequelize.define('amenity', {
-        amenityID: {
-            type: Sequelize.INTEGER,
-            primaryKey: true,
-            autoIncrement: true,
-            field: 'amenity_id'
-        },
-        title: Sequelize.STRING,
-        imageURL: {
-            type: Sequelize.STRING,
-            field: 'image_url'
-        },
-    });
-    return Amenity;
-};
+class Amenity extends Model {
+    static get tableName() { return 'amenity'; }
+    static get idColumn() { return 'amenity_id'; }
+}
+
+module.exports = Amenity;
