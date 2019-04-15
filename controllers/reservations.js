@@ -1,9 +1,14 @@
+require('dotenv').config();
 const express = require('express');
 const router = express.Router();
 const Validator = require('validatorjs');
-const { sendValidationErrors, requireAuth } = require('../middleware.js');
+const { 
+    sendValidationErrors, requireAuth, 
+    sendErrorMessage, catchAll 
+} = require('../middleware.js');
 const { Reservation, ReservedRoom } = require('../models/index.js');
 const moment = require('moment')
+var stripe = require("stripe")(process.env.STRIPE_SK);
 
 
 /**
@@ -18,13 +23,15 @@ router.post('/', requireAuth, async (req, res) =>{
         rooms: req.body.rooms,
         startDate: req.body.startDate,
         endDate: req.body.endDate,
+        stripeToken: req.body.stripeToken
       }, {
         hotelID: 'required|integer',
         rooms: 'required',
         'rooms.*.roomTypeID': 'required|integer',
         'rooms.*.count': 'required|integer',
         startDate: 'required|date|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}$/',
-        endDate: 'required|date|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}$/'
+        endDate: 'required|date|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}$/',
+        stripeToken: 'required|string'
     },{
         "regex.startDate": "Please use the date format yyyy-mm-dd",
         "regex.endDate": "Please use the date format yyyy-mm-dd"
@@ -50,16 +57,30 @@ router.post('/', requireAuth, async (req, res) =>{
             let room = req.body.rooms[i];
             for (j = 0; j < room.count; j++) {
                 let promise = ReservedRoom.query().insert({
-                    reservationID: reservation.reservationID,
-                    hotelID: req.body.hotelID,
-                    roomTypeID: room.roomTypeID,
+                    reservationId: reservation.reservationId,
+                    hotelId: req.body.hotelID,
+                    roomTypeId: room.roomTypeID,
                     startDate: startDate,
                     endDate: endDate
                 })
                 promises.push(promise);
             }
         }
-        Promise.all(promises).then(() => {
+        Promise.all(promises).then(async () => {
+            console.log(process.env.STRIPE_SK);
+            console.log(stripe);
+            var [err, charge] = await catchAll(stripe.charges.create({
+                amount: 999,
+                currency: 'usd',
+                description: 'Reservation id: ' + reservation,
+                source: req.body.stripeToken,
+            }));
+            if (err && err.statusCode == 400) {
+                return sendErrorMessage(res, 400, err.message);
+            } else if (err) {
+                return sendErrorMessage(res, 500, "Could not complete charge. "
+                                                + "Please try again later.");
+            }
             return res.status(200).json({
                 error: false,
                 message: "Your reservation has been successfully created!"

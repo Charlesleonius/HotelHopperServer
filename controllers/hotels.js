@@ -90,6 +90,9 @@ router.get('/', async (req, res) =>{
     let page = req.query.page || 1;
     let hotels = await Hotel.query()
                         .orderBy('rating', 'desc')
+                        .where(raw("ST_DWithin(ST_SetSRID(ST_MakePoint(?, ?),4326), hotel.position, ?)", 
+                            req.query.longitude, req.query.latitude, 0.2
+                        ), true)
                         .limit(perPage)
                         .offset(page);
     // For each hotel room, run a seperate query to get the available rooms
