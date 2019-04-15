@@ -265,11 +265,6 @@ paths:
       produces:
         - "application/json"
       parameters:
-      - name: Authorization
-        in: header
-        description: JWT bearer token given on login or signup. Should be in the format 'bearer \<JWT>'.
-        required: true
-        type: string
       - name: latitude
         in: query
         type: number
@@ -315,22 +310,17 @@ paths:
           schema:
             $ref: '#/definitions/BadRequestResponse'
           
-  /hotels/:id/rooms:
+  /hotels/:id:
     get:
       tags:
       - "hotels"
-      summary: "Returns a hotels details and the available rooms"
+      summary: "Returns a hotels details, available rooms, and amenities"
       description: "Returns the full details of the hotel and the available rooms given the `startDate` and `endDate` of the trip."
       consumes:
         - "application/json"
       produces:
         - "application/json"
       parameters:
-      - name: Authorization
-        in: header
-        description: JWT bearer token given on login or signup. Should be in the format 'bearer \<JWT>'.
-        required: true
-        type: string
       - name: startDate
         in: query
         type: string
@@ -421,7 +411,7 @@ definitions:
       error:
         type: boolean
       data:
-        $ref: '#/definitions/Hotel'
+        $ref: '#/definitions/FullHotel'
   PopularCitiesResponse:
     type: object
     properties:
@@ -436,6 +426,39 @@ definitions:
           - city: "Los Angeles"
             url: "https://s3.amazonaws.com/hotel-hopper-bucket1/los-angeles.png"
   Hotel:    
+    type: object
+    properties:
+      hotelId:
+        type: integer
+      title: 
+        type: string
+      description:
+        type: string
+      street:
+        type: string
+      city:
+        type: string
+      state:
+        type: string
+      zip:
+        type: string
+      country:
+        type: string
+      address:
+        type: string
+      mapURL:
+        type: string
+      imageURL:
+        type: string
+      stars:
+        type: integer
+      rating:
+        type: integer
+      latitude:
+        type: number
+      longitude:
+        type: number
+  FullHotel:
     type: object
     properties:
       hotelId:
@@ -483,6 +506,22 @@ definitions:
               type: integer
             available:
               type: integer
+      hotelAmenities:
+        type: array
+        items: 
+          type: object
+          properties: 
+            amenityId:
+              type: integer
+            amenity:
+              type: object
+              properties:
+                title: 
+                  type: string
+                imageUrl: 
+                  type: string
+
+
             
 externalDocs:
   description: "More information can be found on at the github repo"
