@@ -147,30 +147,10 @@ router.get('/', async (req, res) =>{
 
 /**
  * @Protected
- * @Description - Returns the details of a specific hotel
+ * @Description - Returns the details of a specific hotel 
+ * plus the available rooms and amenities. Rooms depend on the given dates.
  */
 router.get('/:id', async (req, res) =>{
-    let validator = new Validator({
-        id: req.params.id
-      }, {
-        id: 'required|numeric|min:1'
-    });
-    if (validator.fails()) return sendValidationErrors(res, validator);
-    // Find the hotel given the id
-    let hotel = await Hotel.query().findById(req.params.id);
-    if (!hotel) return res.status(404).json({ error: true, message: "No hotel found with id: " + req.params.id});
-    return res.status(200).json({
-        error: false,
-        data: hotel
-    });
-});
-
-
-/**
- * @Protected
- * @Description - Returns the details of a specific hotel and the available rooms in the time frame
- */
-router.get('/:id/rooms', async (req, res) =>{
     let validator = new Validator({
         id: req.params.id,
         startDate: req.query.startDate,
