@@ -211,13 +211,10 @@ paths:
         schema:
             type: object
             required:
-              - email
               - password
               - confirmPassword
               - token
             properties:
-              email:
-                type: string
               password:
                 type: string
               confirmPassword:
@@ -254,7 +251,7 @@ paths:
             $ref: '#/definitions/PopularCitiesResponse'
 
   #Hotels  
-  /hotels/hotels:
+  /hotels:
     get:
       tags:
       - "hotels"
