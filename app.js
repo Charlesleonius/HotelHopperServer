@@ -8,18 +8,10 @@ const cors = require('cors');
 const YAML = require('yamljs');
 const swaggerUi = require('swagger-ui-express');
 const User = require('./models/auth/user.js');
-const nodemailer = require('nodemailer');
 
 //Constants || Singletons
 const app = express();
 const PORT = process.env.PORT || 3000;
-const emailTransporter = nodemailer.createTransport({
-    service: 'Gmail',
-    auth: {
-        user: `${process.env.EMAIL_ADDRESS}`,
-        pass: `${process.env.EMAIL_PASSWORD}`
-    }
-});
 
 //JWT Helpers
 var ExtractJwt = passportJWT.ExtractJwt;
@@ -69,6 +61,5 @@ const server = app.listen(PORT, () => {
 
 module.exports = {
     app,
-    server,
-    emailTransporter
+    server
 }

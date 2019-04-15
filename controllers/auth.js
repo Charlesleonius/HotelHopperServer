@@ -5,9 +5,9 @@ const Validator = require('validatorjs');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
-const { emailTransporter } = require('../app.js')
 const { sendValidationErrors, requireAuth, sendErrorMessage } = require('../middleware.js');
 const { User, PasswordResetToken } = require('../models/index.js');
+const nodemailer = require('nodemailer');
 
 //Recommended rounds for password hashing
 const SALT_ROUNDS = 10;
@@ -104,6 +104,13 @@ router.post('/forgotPassword', async function(req, res, next) {
                 `Please go to the following link to complete the password reset process within an hour:\n` + resetURL + 
                 `\n\nIf you believe you've received this email in error, please contact support and delete this email.`
         };
+        let emailTransporter = nodemailer.createTransport({
+            service: 'Gmail',
+            auth: {
+                user: `${process.env.EMAIL_ADDRESS}`,
+                pass: `${process.env.EMAIL_PASSWORD}`
+            }
+        });
         emailTransporter.sendMail(mailOptions, function(err, response) {
             if (err) console.log('error: ', err);
         });
