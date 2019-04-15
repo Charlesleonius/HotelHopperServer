@@ -33,7 +33,7 @@ router.put('/scrapedHotel', [requireAuth, requireAdmin], async (req, res) => {
         stars: req.body.stars
     });
     req.body.rooms.forEach(async room => {
-        let hotelRoom = await HotelRoom.query().insert({
+        await HotelRoom.query().insert({
             hotel_id: hotel.hotelId,
             room_type_id: room.roomTypeId,
             price: room.price,
@@ -41,7 +41,7 @@ router.put('/scrapedHotel', [requireAuth, requireAdmin], async (req, res) => {
         })
     });
     req.body.amenities.forEach(async amenityId => {
-        let amenity = await HotelAmenity.query().insert({ 
+        await HotelAmenity.query().insert({ 
             hotel_id: hotel.hotelId,
             amenity_id: amenityId
         });
@@ -91,8 +91,7 @@ router.get('/', async (req, res) =>{
     let hotels = await Hotel.query()
                         .orderBy('rating', 'desc')
                         .limit(perPage)
-                        .offset(page)
-                        .eager('hotelAmenities.amenity');
+                        .offset(page);
     // For each hotel room, run a seperate query to get the available rooms
     let fullHotels = [];
     for (var i in hotels) {
@@ -100,7 +99,8 @@ router.get('/', async (req, res) =>{
         // The following query finds the amount of each room type that is not taken during the requested time period.
         let rooms = await knex.raw(
             '( \
-                SELECT room_type.room_type_id as "roomTypeId", room_type.title, room_type.description, room_type.persons, room_type.beds, \
+                SELECT room_type.room_type_id as "roomTypeId", room_type.title, \
+                room_type.description, room_type.persons, room_type.beds, hotel_room.price, \
                 ( \
                     CAST((hotel_room.room_count - ( \
                         SELECT count(*) FROM reserved_room \
@@ -127,12 +127,14 @@ router.get('/', async (req, res) =>{
             ]
         );
         var totalPersons = 0;
+        var lowestCost;
         // Add up the total people the available rooms can accomodate.
         rooms.rows.forEach(room => {
             totalPersons += room.persons * room.available;
+            if (!lowestCost || room.price < lowestCost) lowestCost = room.price;
         });
         if (totalPersons >= req.query.persons) {
-            hotel.rooms = rooms.rows;
+            hotel.priceRange = "Rooms starting as low as $" + lowestCost;
             fullHotels.push(hotel);
         }
     }
@@ -192,12 +194,13 @@ router.get('/:id/rooms', async (req, res) =>{
         }); 
     }
     // Find the hotel given the id
-    let hotel = await Hotel.query().findById(req.params.id);
+    let hotel = await Hotel.query().findById(req.params.id).eager('hotelAmenities.amenity');
     if (!hotel) return res.status(404).json({ error: true, message: "No hotel found with id: " + req.params.id});
     // The following query finds the amount of each room type that is not taken during the requested time period.
     let rooms = await knex.raw(
         '( \
-            SELECT room_type.room_type_id as "roomTypeId", room_type.title, room_type.description, room_type.persons, room_type.beds, \
+            SELECT room_type.room_type_id as "roomTypeId", room_type.title, \
+            room_type.description, room_type.persons, room_type.beds, hotel_room.price, \
             ( \
                 CAST((hotel_room.room_count - ( \
                     SELECT count(*) FROM reserved_room \
@@ -220,7 +223,7 @@ router.get('/:id/rooms', async (req, res) =>{
             endDate,
             startDate, 
             endDate,
-            req.params.id
+            hotel.hotelId
         ]
     );
     hotel.rooms = rooms.rows;
