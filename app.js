@@ -41,6 +41,7 @@ var authController = require('./controllers/auth.js');
 var popularDestinationsController = require('./controllers/popular-destinations.js');
 var hotelController = require('./controllers/hotels.js');
 var reservationsController = require('./controllers/reservations.js');
+var usersController = require('./controllers/users.js');
 
 /*
 * Define routes
@@ -53,6 +54,7 @@ app.use('/auth', authController);
 app.use('/popularDestinations', popularDestinationsController);
 app.use('/hotels', hotelController);
 app.use('/reservations', reservationsController);
+app.use('/users', usersController);
 app.get('/', (req, res) => res.send('Hello World!'));
 
 const server = app.listen(PORT, () => {

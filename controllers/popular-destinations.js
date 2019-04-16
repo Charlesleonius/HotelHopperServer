@@ -26,16 +26,17 @@ router.get('/', async (req, res) => {
             count++;
         }
     };
-
     // get city and url
     let popularDestinations = await knex.select('city', 'url')
                                         .from('popular_destinations')
-                                        .where({city: fourRandomCities[0].city,})
-                                        .orWhere({city: fourRandomCities[1].city,})
-                                        .orWhere({city: fourRandomCities[2].city,})
-                                        .orWhere({city: fourRandomCities[3].city,});
-                                         
-    res.status(200).send(popularDestinations);
+                                        .where({city: fourRandomCities[0].city})
+                                        .orWhere({city: fourRandomCities[1].city})
+                                        .orWhere({city: fourRandomCities[2].city})
+                                        .orWhere({city: fourRandomCities[3].city});                
+    res.status(200).json({
+        error: false,
+        data: popularDestinations
+    });
 
 });
 

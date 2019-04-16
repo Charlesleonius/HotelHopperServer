@@ -8,6 +8,8 @@ const jwt = require('jsonwebtoken');
 const { User } = require('../models/index.js');
 const moment = require('moment');
 
+try {
+
 /*
 * Place holder to make sure tests are running on jenkins
 */
@@ -170,11 +172,13 @@ describe('Get user details', () => {
 }); 
 
 describe('Hotels', () => {
+    let startDate = moment().add(1, 'days').format("YYYY-MM-DD");
+    let endDate = moment().add(2, 'days').format("YYYY-MM-DD");
     var payload = { email: 'test@test.com' };
     token = jwt.sign(payload, global.jwtOptions.secretOrKey)
     it('It should return the hotel\'s details', function(done) {
         chai.request(server)
-            .get('/hotels/1')
+            .get('/hotels/1?startDate=' + startDate + '&endDate=' + endDate)
             .set('Authorization', 'Bearer ' + token)
             .end(function (err, res) {
                 res.should.have.status(200);
@@ -182,10 +186,6 @@ describe('Hotels', () => {
                 done();
         });
     });
-    let startDate = moment().format("YYYY-MM-DD");
-    let endDate = moment().add(1, 'days').format("YYYY-MM-DD");
-    console.log(startDate);
-    console.log(endDate);
     it('It should return matching hotels', function(done) {
         chai.request(server)
             .get('/hotels?latitude=37.3440232&longitude=-121.8738311&startDate=' + startDate + '&endDate=' + endDate + '&persons=1')
@@ -198,7 +198,60 @@ describe('Hotels', () => {
     });
 }); 
 
+describe('Adding and removing payment methods', () => {
+    token = ""
+    before(async () => {
+        await User.query().delete().where('email', '=', 'test@test.com')
+        let body = {
+            "firstName": "Test",
+            "lastName": "McTester",
+            "email": "test@test.com",
+            "password": "T3sta00ni"
+        }
+        let res = await chai.request(server).post('/auth/register').send(body);
+        token = res.body.data.token;
+    });
+    it('It should add a source to the user', function(done) {
+        let body = {
+            token: "tok_1EPjaRJJU2YEsvxmq737EJzT"
+        }
+        chai.request(server)
+            .post('/users/paymentMethods')
+            .set('Authorization', 'Bearer ' + token)
+            .send(body)
+            .end(function (err, res) {
+                res.should.have.status(200);
+                done();
+        });
+    });
+
+    it('It should return the users sources', function(done) {
+        chai.request(server)
+            .get('/users/paymentMethods')
+            .set('Authorization', 'Bearer ' + token)
+            .end(function (err, res) {
+                res.should.have.status(200);
+                res.body.data.sources.should.not.eql(undefined);
+                done();
+        });
+    });
+
+    after(function(done) {
+        User.query().delete().where('email', '=', 'test@test.com').then(() => {
+            done();
+        }).catch(err => {
+            done(err);
+        });
+    });
+
+}); 
+
 after(function(done) {
     server.close();
     done();
 });
+
+} catch(e) {
+    console.log(e);
+    server.close();
+}
