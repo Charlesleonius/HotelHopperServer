@@ -94,7 +94,7 @@ router.get('/', async (req, res) =>{
                             req.query.longitude, req.query.latitude, 0.2
                         ), true)
                         .limit(perPage)
-                        .offset(page * perPage);
+                        .offset((page - 1) * perPage);
     // For each hotel room, run a seperate query to get the available rooms
     let fullHotels = [];
     for (var i in hotels) {
