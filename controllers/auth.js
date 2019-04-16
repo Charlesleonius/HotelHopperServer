@@ -162,7 +162,7 @@ router.get('/resetPassword/:token', async function(req, res, next) {
 /**
 * @Description - Reset the password
 */
-router.put('/resetPassword', async function(req, res, next) {
+router.patch('/resetPassword', async function(req, res, next) {
     let validator = new Validator({
         password: req.body.password,
         confirmPassword: req.body.confirmPassword,
