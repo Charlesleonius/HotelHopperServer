@@ -455,6 +455,8 @@ definitions:
         type: number
       longitude:
         type: number
+      lowestPrice:
+        type: number
   FullHotel:
     type: object
     properties:

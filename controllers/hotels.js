@@ -94,7 +94,7 @@ router.get('/', async (req, res) =>{
                             req.query.longitude, req.query.latitude, 0.2
                         ), true)
                         .limit(perPage)
-                        .offset(page);
+                        .offset(page * perPage);
     // For each hotel room, run a seperate query to get the available rooms
     let fullHotels = [];
     for (var i in hotels) {
@@ -137,7 +137,7 @@ router.get('/', async (req, res) =>{
             if (!lowestCost || room.price < lowestCost) lowestCost = room.price;
         });
         if (totalPersons >= req.query.persons) {
-            hotel.priceRange = "Rooms starting as low as $" + lowestCost;
+            hotel.lowestPrice = lowestCost;
             fullHotels.push(hotel);
         }
     }
