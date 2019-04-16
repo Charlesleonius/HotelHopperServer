@@ -67,17 +67,17 @@ router.post('/', requireAuth, async (req, res) =>{
             }
         }
         Promise.all(promises).then(async () => {
-            console.log(process.env.STRIPE_SK);
-            console.log(stripe);
             var [err, charge] = await catchAll(stripe.charges.create({
                 amount: 999,
                 currency: 'usd',
                 description: 'Reservation id: ' + reservation,
                 source: req.body.stripeToken,
+                customer: req.user.stripeCustomerId
             }));
             if (err && err.statusCode == 400) {
                 return sendErrorMessage(res, 400, err.message);
             } else if (err) {
+                console.log(err);
                 return sendErrorMessage(res, 500, "Could not complete charge. "
                                                 + "Please try again later.");
             }

@@ -8,6 +8,7 @@ const moment = require('moment');
 const { sendValidationErrors, requireAuth, sendErrorMessage } = require('../middleware.js');
 const { User, PasswordResetToken } = require('../models/index.js');
 const nodemailer = require('nodemailer');
+var stripe = require("stripe")(process.env.STRIPE_SK);
 
 //Recommended rounds for password hashing
 const SALT_ROUNDS = 10;
@@ -37,6 +38,12 @@ router.post('/register', async function(req, res) {
         email: req.body.email, 
         password: String(hash) 
     }); //Create a new user
+    let stripeCustomer = await stripe.customers.create({
+        email: req.body.email,
+    });
+    await User.query().where('email', '=', req.body.email).patch({
+        stripeCustomerId: stripeCustomer.id
+    });
     var payload = { email: req.body.email };
     var token = jwt.sign(payload, global.jwtOptions.secretOrKey); //Create JWT token with email claim
     return res.json({
