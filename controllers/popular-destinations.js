@@ -32,7 +32,7 @@ router.get('/', async (req, res) => {
                                         .where({city: fourRandomCities[0].city})
                                         .orWhere({city: fourRandomCities[1].city})
                                         .orWhere({city: fourRandomCities[2].city})
-                                        .orWhere({city: fourRandomCities[3].city});                
+                                        .orWhere({city: fourRandomCities[3].city});
     res.status(200).json({
         error: false,
         data: popularDestinations
