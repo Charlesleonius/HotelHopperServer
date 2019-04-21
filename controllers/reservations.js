@@ -50,7 +50,8 @@ router.post('/', requireAuth, async (req, res) =>{
         hotelID: req.body.hotelID,
         userID: req.user.userId,
         startDate: startDate,
-        endDate: endDate
+        endDate: endDate,
+        status: 'pending'
     }).then(reservation => {
         let promises = [];
         for (var i in req.body.rooms) {
@@ -93,6 +94,49 @@ router.post('/', requireAuth, async (req, res) =>{
             message: err.message
         });
     })
+});
+
+/**
+ * @Protected
+ * @Description - Updates the status of a given reservation
+ * @TODO - Charge for cancellation, reward points?
+ */
+router.patch('/:id/:status', async (req, res) => {
+    let validator = new Validator({
+        id: req.params.id,
+        status: req.params.status
+      }, {
+        id: 'required|numeric|min:1',
+        status: 'required|string'
+    });
+    if (validator.fails()) return sendValidationErrors(res, validator);
+    const id = req.params.id;
+    const status = req.params.status;
+
+    if(!(status == 'pending' || status == 'completed' || status == 'cancelled')) {
+        return res.status(404).json({
+            error: true,
+            message: 'Status can only be pending, completed, or cancelled'
+        });
+    }
+
+    let reservation = await Reservation.query()
+                                        .select()
+                                        .from('reservation')
+                                        .where({reservation_id: id});
+
+    if(reservation.length == 0) {
+        return res.status(404).json({
+            error: true,
+            message: `Reservation ID ${id} does not exist`
+        });
+    }
+
+    await Reservation.query().where({reservation_id: id}).update({current_status: status});
+    return res.status(200).json({
+        error: false,
+        message: 'Your reservation has been updated'
+    });
 });
 
 module.exports = router;
