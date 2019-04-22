@@ -6,9 +6,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const { sendValidationErrors, requireAuth, sendErrorMessage } = require('../middleware.js');
-const { User, PasswordResetToken } = require('../models/index.js');
+const { User, PasswordResetToken, Reservation } = require('../models/index.js');
 const nodemailer = require('nodemailer');
-var stripe = require("stripe")(process.env.STRIPE_SK);
+const stripe = require("stripe")(process.env.STRIPE_SK);
+const knex = require("../knex.js");
+const { raw } = require("objection");
 
 //Recommended rounds for password hashing
 const SALT_ROUNDS = 10;
@@ -208,15 +210,30 @@ router.patch('/resetPassword', async function(req, res, next) {
 * @Protected
 * @Description - Gets the users full account details
 */
-router.get("/userDetails", requireAuth, function (req, res) {
-    delete req.user.password;
-    res.status(200).json({
-        error: false,
-        data: req.user
-    });
+router.get("/userDetails", requireAuth, async function (req, res) {
+		let date = moment().format("YYYY-MM-DD");
+		// Expire old reservations
+		let reservations = await Reservation.query().patch({ status: 'complete' })
+														.where('status', '=', 'pending')
+														.where('end_date', '<', moment().format("YYYY-MM-DD"))
+														.where('user_id', '=', req.user.userId)
+														.returning('*');
+		if (reservations.length > 0) {
+				// Sum up the cost of newly expired reservations
+				var totalCost = reservations.reduce(
+						(accumulator, currentValue) => accumulator + parseInt(currentValue.totalCost), 0
+				);
+				req.user.rewardPoints += (totalCost * 0.10);
+				await User.query().patch({
+						rewardPoints: req.user.rewardPoints
+				}).where('user_id', '=', req.user.userId);
+		}
+		delete req.user.password;
+		res.status(200).json({
+				error: false,
+				data: req.user
+		});
 });
-
-
 /**
 * @Protected
 * @Description - Route for testing auth functionality

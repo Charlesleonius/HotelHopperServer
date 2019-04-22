@@ -101,7 +101,7 @@ router.post('/', requireAuth, async (req, res) => {
         }
         var [err, charge] = await catchAll(stripe.charges.create({
             amount: 999,
-            currency: 'usd',
+           currency: 'usd',
             description: 'Reservation id: ' + reservation,
             source: req.body.stripeToken,
             customer: req.user.stripeCustomerId
@@ -190,15 +190,15 @@ router.post('/cancel', requireAuth, (req, res) => {
  */
 router.get('/', requireAuth, async (req, res) => {
     let reservations = await Reservation.query().where('user_id', '=', req.user.userId)
-    .eager('reservedRooms')
+    .eager('reservedRooms.roomType')
     .modifyEager('reservedRooms', builder => {
-        builder.select(raw('room_type_id, CAST(count(*) as INTEGER) as count'))
+        builder.select(raw('room_type_id, CAST(count(*) as INTEGER) as count'));
         builder.groupBy(['roomTypeId', 'reservationId']);
     });
     return res.status(200).json({
         error: false,
         data: reservations
-    })
+    });
 });
 
 module.exports = router;
