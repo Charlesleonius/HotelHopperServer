@@ -174,7 +174,7 @@ router.get('/:id', async (req, res) =>{
         return res.status(400).json({
             error: true,
             message: "Invalid date range. Make sure your reservation isn't in the past!"
-        }); 
+        });
     }
     // Find the hotel given the id
     let hotel = await Hotel.query().findById(req.params.id).eager('hotelAmenities.amenity');
