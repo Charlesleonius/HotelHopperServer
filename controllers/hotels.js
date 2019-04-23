@@ -100,7 +100,21 @@ router.get('/', async (req, res) =>{
                             req.query.longitude, req.query.latitude, 0.2
                         ), true)
                         .limit(perPage)
-                        .offset((page - 1) * perPage);
+                        .offset((page - 1) * perPage)
+                        .modify(function(queryBuilder) {
+                            switch (req.query.sort) {
+                                case 'stars':
+                                    queryBuilder.orderBy('stars', 'desc')
+                                case 'distance':
+                                    queryBuilder.orderBy(
+                                        raw('ST_Distance(ST_SetSRID(ST_MakePoint(?, ?),4326), hotel.position)', 
+                                            req.query.longitude, req.query.latitude
+                                        ), 'asc'
+                                    )
+                                default:
+                                    queryBuilder.orderBy('rating', 'desc')
+                            }
+                        });
     // For each hotel room, run a seperate query to get the available rooms
     let fullHotels = [];
     for (var i in hotels) {
