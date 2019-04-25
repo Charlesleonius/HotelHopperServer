@@ -33,10 +33,18 @@ let sendErrorMessage = function(res, status, message) {
     });
 }
 
+const catchAll = function (promise) {
+    return promise.then(data => {
+       return [null, data];
+    })
+    .catch(err => [err]);
+ }
+
 module.exports = {
     requireAuth,
     requireAdmin,
     sendValidationErrors,
-    sendErrorMessage
+    sendErrorMessage,
+    catchAll
 };
 
