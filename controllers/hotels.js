@@ -3,7 +3,6 @@ const router = express.Router();
 const { Hotel, HotelRoom, HotelAmenity } = require('../models/index.js');
 const { requireAdmin, requireAuth,
         sendErrorMessage, sendValidationErrors } = require('../middleware.js');
-const knex = require('../knex.js');
 const { raw } = require('objection');
 const Validator = require('validatorjs');
 const moment = require('moment');
@@ -121,8 +120,7 @@ router.get('/', async (req, res) =>{
         let hotel = hotels[i];
         // The following query finds the amount of each room type
         // that is not taken during the requested time period.
-        let availableRooms = await Hotel.getAvailableRooms(req.body.hotelId,
-            req.body.startDate, req.body.endDate);
+        let availableRooms = await Hotel.getAvailableRooms(hotel.hotelId, startDate, endDate);
         var totalPersons = 0;
         var lowestCost;
         // Add up the total people the available rooms can accomodate.
@@ -175,8 +173,7 @@ router.get('/:id', async (req, res) =>{
     if (!hotel) return sendErrorMessage(res, 404, "No hotel found with id: " + req.params.id);
     // The following query finds the amount of each room type
     // that is not taken during the requested time period.
-    let availableRooms = await Hotel.getAvailableRooms(req.body.hotelId,
-        req.body.startDate, req.body.endDate);
+    let availableRooms = await Hotel.getAvailableRooms(req.params.id, startDate, endDate);
     hotel.rooms = availableRooms.rows;
     return res.status(200).json({
         error: false,
