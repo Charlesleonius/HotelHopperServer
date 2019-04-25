@@ -10,7 +10,6 @@ const {
 const { Hotel, Reservation, ReservedRoom, HotelRoomm, User } = require('../models/index.js');
 var stripe = require("stripe")(process.env.STRIPE_SK);
 const nodemailer = require('nodemailer');
-const knex = require('../knex.js');
 const { raw, transaction } = require('objection');
 
 /**
@@ -103,8 +102,7 @@ router.post('/', requireAuth, async (req, res) => {
             amount: 999,
            currency: 'usd',
             description: 'Reservation id: ' + reservation,
-            source: req.body.stripeToken,
-            customer: req.user.stripeCustomerId
+            source: req.body.stripeToken
         }));
         if (err && err.statusCode == 400) {
             await trx.rollback();
