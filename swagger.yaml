@@ -105,7 +105,7 @@ paths:
           schema:
             $ref: '#/definitions/BadRequestResponse'
 
-  /auth/getUserDetails:
+  /auth/userDetails:
     get:
       tags:
       - "auth"
@@ -135,6 +135,7 @@ paths:
                   lastName: Doe
                   email: John.Doe@email.com
                   isAdmin: false
+                  rewardPoints: 580
         401:
           description: "Unauthorized"
           schema:
@@ -343,6 +344,7 @@ paths:
           description: "Unauthorized"
           schema:
             $ref: '#/definitions/UnauthorizedResponse'
+
   # Reservations
   /reservations/:
     post:
@@ -362,7 +364,31 @@ paths:
         200:
           description: "OK"
           schema:
-            $ref: '#/definitions/HotelInfoResponse'
+            type: object
+            example:
+              error: false
+              message: "Your reservation has been successfully created!"
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+        401:
+          description: "Unauthorized"
+          schema:
+            $ref: '#/definitions/UnauthorizedResponse'
+    get:
+      tags:
+      - "reservations"
+      summary: "Get all your reservations"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      responses:
+        200:
+          description: "OK"
+          schema:
+            $ref: '#/definitions/ReservationListResponse'
         400:
           description: "Bad Request"
           schema:
@@ -549,11 +575,20 @@ definitions:
                   type: string
                 imageUrl:
                   type: string
+  ReservationListResponse:
+    type: object
+    properties:
+      error:
+        type: boolean
+      data:
+        type: array
+        items:
+          $ref: '#/definitions/ReservationDetail'
   CreateReservationRequest:
     type: object
     properties:
       hotelId:
-        type: string
+        type: integer
       startDate:
         type: string
       endDate:
@@ -569,6 +604,39 @@ definitions:
               type: string
             count:
               type: integer
+  ReservationDetail:
+    type: object
+    properties:
+      reservationId:
+        type: integer
+      hotelId:
+        type: integer
+      startDate:
+        type: string
+      endDate:
+        type: string
+      totalCost:
+        type: integer
+      status:
+        type: string
+      reservedRooms:
+        type: array
+        items:  
+          type: object
+          properties:
+            count:
+              type: integer
+            roomType:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                persons:
+                  type: integer
+                beds:
+                  type: integer
 
 externalDocs:
   description: "More information can be found on at the github repo"
