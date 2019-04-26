@@ -223,7 +223,7 @@ router.get("/userDetails", requireAuth, async function (req, res) {
         var totalCost = reservations.reduce(
             (accumulator, currentValue) => accumulator + parseInt(currentValue.totalCost), 0
         );
-        req.user.rewardPoints += (totalCost * 0.10);
+        req.user.rewardPoints += Math.round(totalCost * 0.10);
         await User.query().patch({
             rewardPoints: req.user.rewardPoints
         }).where('user_id', '=', req.user.userId);

@@ -131,7 +131,10 @@ router.post('/', requireAuth, async (req, res) => {
         emailTransporter.sendMail(mailOptions, function (err, response) { });
         return res.status(200).json({
             error: false,
-            message: "Your reservation has been successfully created!"
+            message: "Your reservation has been successfully created!",
+            data: {
+                reservationId: reservation.reservation_id
+            }
         });
     } catch (err) {
         await trx.rollback();
@@ -188,7 +191,7 @@ router.post('/cancel', requireAuth, (req, res) => {
  */
 router.get('/', requireAuth, async (req, res) => {
     let reservations = await Reservation.query().where('user_id', '=', req.user.userId)
-    .eager('reservedRooms.roomType')
+    .eager('[reservedRooms.roomType, hotel]')
     .modifyEager('reservedRooms', builder => {
         builder.select(raw('room_type_id, CAST(count(*) as INTEGER) as count'));
         builder.groupBy(['roomTypeId', 'reservationId']);
@@ -196,6 +199,25 @@ router.get('/', requireAuth, async (req, res) => {
     return res.status(200).json({
         error: false,
         data: reservations
+    });
+});
+
+/**
+ * @Protected
+ * @Description - Get all of the users reservations
+ */
+router.get('/:reservationId', requireAuth, async (req, res) => {
+    let reservation = await Reservation.query()
+    .where('reservation_id', '=', req.params.reservationId)
+    .where('user_id', '=', req.user.userId)
+    .eager('[reservedRooms.roomType, hotel]')
+    .modifyEager('reservedRooms', builder => {
+        builder.select(raw('room_type_id, CAST(count(*) as INTEGER) as count'));
+        builder.groupBy(['roomTypeId', 'reservationId']);
+    }).first();
+    return res.status(200).json({
+        error: false,
+        data: reservation
     });
 });
 
