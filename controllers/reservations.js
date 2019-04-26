@@ -215,6 +215,9 @@ router.get('/:reservationId', requireAuth, async (req, res) => {
         builder.select(raw('room_type_id, CAST(count(*) as INTEGER) as count'));
         builder.groupBy(['roomTypeId', 'reservationId']);
     }).first();
+    if (!reservation) return sendErrorMessage(res, 404, 
+        "No reservation found with id: " + req.params.reservationId
+    );
     return res.status(200).json({
         error: false,
         data: reservation
