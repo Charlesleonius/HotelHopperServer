@@ -8,7 +8,7 @@ router.use(express.json());
 router.get('/', async (req, res) => {
 
     // get all cities
-    let cities = await knex.raw('SELECT city FROM popular_destinations');
+    let cities = await knex.raw('SELECT city FROM popular_destination');
     if (cities) {
         var citiesArray = new Array();
         cities.rows.forEach(city => {
