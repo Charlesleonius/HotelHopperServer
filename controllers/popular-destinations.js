@@ -27,7 +27,7 @@ router.get('/', async (req, res) => {
         }
     };
     // get city and url
-    let popularDestinations = await knex.select('city', 'url')
+    let popularDestinations = await knex.select('city', 'url', 'lat', 'lng')
                                         .from('popular_destination')
                                         .where({city: fourRandomCities[0].city})
                                         .orWhere({city: fourRandomCities[1].city})
