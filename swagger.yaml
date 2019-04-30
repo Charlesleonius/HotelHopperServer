@@ -14,6 +14,8 @@ tags:
 - name: "popular destinations"
 - name: "hotels"
   description: "Hotel search, details and more"
+- name: "reservations"
+  description: "Create, retreive, delete reservations"
 schemes:
 - "https"
 
@@ -59,7 +61,7 @@ paths:
           description: "Bad request"
           schema:
             $ref: '#/definitions/BadRequestResponse'
-            
+
   /auth/register:
     post:
       tags:
@@ -102,8 +104,8 @@ paths:
           description: "Bad request"
           schema:
             $ref: '#/definitions/BadRequestResponse'
-            
-  /auth/getUserDetails:
+
+  /auth/userDetails:
     get:
       tags:
       - "auth"
@@ -133,11 +135,12 @@ paths:
                   lastName: Doe
                   email: John.Doe@email.com
                   isAdmin: false
+                  rewardPoints: 580
         401:
           description: "Unauthorized"
           schema:
             $ref: '#/definitions/UnauthorizedResponse'
-  
+
   /auth/forgotPassword:
     post:
       tags:
@@ -170,7 +173,7 @@ paths:
           description: "Bad Request"
           schema:
             $ref: '#/definitions/BadRequestResponse'
-            
+
   /auth/resetPassword/<token>:
     get:
       tags:
@@ -194,7 +197,7 @@ paths:
           description: "Bad Request"
           schema:
             $ref: '#/definitions/BadRequestResponse'
-            
+
   /auth/resetPassword:
     patch:
       tags:
@@ -233,7 +236,7 @@ paths:
           description: "Bad Request"
           schema:
             $ref: '#/definitions/BadRequestResponse'
-            
+
   /popularDestinations:
     get:
       tags:
@@ -250,7 +253,7 @@ paths:
           schema:
             $ref: '#/definitions/PopularCitiesResponse'
 
-  #Hotels  
+  #Hotels
   /hotels:
     get:
       tags:
@@ -306,7 +309,7 @@ paths:
           description: "Bad Request"
           schema:
             $ref: '#/definitions/BadRequestResponse'
-          
+
   /hotels/:id:
     get:
       tags:
@@ -341,7 +344,60 @@ paths:
           description: "Unauthorized"
           schema:
             $ref: '#/definitions/UnauthorizedResponse'
-            
+
+  # Reservations
+  /reservations/:
+    post:
+      tags:
+      - "reservations"
+      summary: "Create a new reservation"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: body
+        in: body
+        schema:
+          $ref: '#/definitions/CreateReservationRequest'
+      responses:
+        200:
+          description: "OK"
+          schema:
+            type: object
+            example:
+              error: false
+              message: "Your reservation has been successfully created!"
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+        401:
+          description: "Unauthorized"
+          schema:
+            $ref: '#/definitions/UnauthorizedResponse'
+    get:
+      tags:
+      - "reservations"
+      summary: "Get all your reservations"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      responses:
+        200:
+          description: "OK"
+          schema:
+            $ref: '#/definitions/ReservationListResponse'
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+        401:
+          description: "Unauthorized"
+          schema:
+            $ref: '#/definitions/UnauthorizedResponse'
+
 securityDefinitions:
   api_key:
     type: "apiKey"
@@ -422,7 +478,7 @@ definitions:
             url: "https://s3.amazonaws.com/hotel-hopper-bucket1/chicago.png"
           - city: "Los Angeles"
             url: "https://s3.amazonaws.com/hotel-hopper-bucket1/los-angeles.png"
-  Hotel:    
+  Hotel:
     type: object
     properties:
       hotelId:
@@ -492,9 +548,9 @@ definitions:
         type: number
       rooms:
         type: array
-        items: 
+        items:
           type: object
-          properties: 
+          properties:
             title:
               type: string
             description:
@@ -507,21 +563,81 @@ definitions:
               type: integer
       hotelAmenities:
         type: array
-        items: 
+        items:
           type: object
-          properties: 
+          properties:
             amenityId:
               type: integer
             amenity:
               type: object
               properties:
-                title: 
+                title:
                   type: string
-                imageUrl: 
+                imageUrl:
                   type: string
+  ReservationListResponse:
+    type: object
+    properties:
+      error:
+        type: boolean
+      data:
+        type: array
+        items:
+          $ref: '#/definitions/ReservationDetail'
+  CreateReservationRequest:
+    type: object
+    properties:
+      hotelId:
+        type: integer
+      startDate:
+        type: string
+      endDate:
+        type: string
+      stripeToken:
+        type: string
+      rooms:
+        type: array
+        items:
+          type: object
+          properties:
+            roomTypeId:
+              type: string
+            count:
+              type: integer
+  ReservationDetail:
+    type: object
+    properties:
+      reservationId:
+        type: integer
+      hotelId:
+        type: integer
+      startDate:
+        type: string
+      endDate:
+        type: string
+      totalCost:
+        type: integer
+      status:
+        type: string
+      reservedRooms:
+        type: array
+        items:  
+          type: object
+          properties:
+            count:
+              type: integer
+            roomType:
+              type: object
+              properties:
+                title:
+                  type: string
+                description:
+                  type: string
+                persons:
+                  type: integer
+                beds:
+                  type: integer
 
-
-            
 externalDocs:
   description: "More information can be found on at the github repo"
   url: "https://github.com/CharlesLeonius/HotelHopperServer"

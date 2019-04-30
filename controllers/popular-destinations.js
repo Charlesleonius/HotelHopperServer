@@ -8,7 +8,7 @@ router.use(express.json());
 router.get('/', async (req, res) => {
 
     // get all cities
-    let cities = await knex.raw('SELECT city FROM popular_destinations');
+    let cities = await knex.raw('SELECT city FROM popular_destination');
     if (cities) {
         var citiesArray = new Array();
         cities.rows.forEach(city => {
@@ -28,11 +28,11 @@ router.get('/', async (req, res) => {
     };
     // get city and url
     let popularDestinations = await knex.select('city', 'url', 'lat', 'lng')
-                                        .from('popular_destinations')
+                                        .from('popular_destination')
                                         .where({city: fourRandomCities[0].city})
                                         .orWhere({city: fourRandomCities[1].city})
                                         .orWhere({city: fourRandomCities[2].city})
-                                        .orWhere({city: fourRandomCities[3].city});                
+                                        .orWhere({city: fourRandomCities[3].city});
     res.status(200).json({
         error: false,
         data: popularDestinations

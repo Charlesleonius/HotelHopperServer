@@ -6,9 +6,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
 const { sendValidationErrors, requireAuth, sendErrorMessage } = require('../middleware.js');
-const { User, PasswordResetToken } = require('../models/index.js');
+const { User, PasswordResetToken, Reservation } = require('../models/index.js');
 const nodemailer = require('nodemailer');
-var stripe = require("stripe")(process.env.STRIPE_SK);
+const stripe = require("stripe")(process.env.STRIPE_SK);
+const knex = require("../knex.js");
+const { raw } = require("objection");
 
 //Recommended rounds for password hashing
 const SALT_ROUNDS = 10;
@@ -35,8 +37,8 @@ router.post('/register', async function(req, res) {
     await User.query().insert({
         firstName: req.body.firstName,
         lastName: req.body.lastName,
-        email: req.body.email, 
-        password: String(hash) 
+        email: req.body.email,
+        password: String(hash)
     }); //Create a new user
     let stripeCustomer = await stripe.customers.create({
         email: req.body.email,
@@ -49,8 +51,8 @@ router.post('/register', async function(req, res) {
     return res.json({
         error: false,
         message: "OK",
-        data: { 
-            token: token 
+        data: {
+            token: token
         }
     });
 })
@@ -75,9 +77,9 @@ router.post('/login', async function (req, res) {
     var payload = { email: req.body.email };
     delete user.password;
     return res.json({
-        error: false, 
-        message: "OK", 
-        data: { 
+        error: false,
+        message: "OK",
+        data: {
             token: jwt.sign(payload, global.jwtOptions.secretOrKey),
             user: user
         }
@@ -101,33 +103,33 @@ router.post('/forgotPassword', async function(req, res, next) {
     PasswordResetToken.query().delete().where('user_id', '=', user.userId); //Asynchronously destroy old tokens
     await PasswordResetToken.query().insert({ token: token, expires: moment().add(1, 'days'), userId: user.userId });
     if (process.env.NODE_ENV != "test") { // Send email in staging or production environments
-        let  resetURL = (`https://` + process.env.APP_URL + `/reset/${token}`)
+        let  resetURL = ("https://" + process.env.APP_URL + "/reset/token")
         const mailOptions = {
-            from: `hotelhopperhelp@gmail.com`,
-            to: `${user.email}`,
-            subject: `Reset Your Password from Hotel Hopper!`,
-            text: 
-                `You are receiving this email because you have requested to reset the password for your account.\n\n` +
-                `Please go to the following link to complete the password reset process within an hour:\n` + resetURL + 
-                `\n\nIf you believe you've received this email in error, please contact support and delete this email.`
+            from: 'hotelhopperhelp@gmail.com',
+            to: 'user.email',
+            subject: 'Reset Your Password from Hotel Hopper!',
+            text:
+                "You are receiving this email because you have requested to reset the password for your account.\n\n" +
+                "Please go to the following link to complete the password reset process within an hour:\n" + resetURL +
+                "\n\nIf you believe you've received this email in error, please contact support and delete this email."
         };
         let emailTransporter = nodemailer.createTransport({
             service: 'Gmail',
             auth: {
-                user: `${process.env.EMAIL_ADDRESS}`,
-                pass: `${process.env.EMAIL_PASSWORD}`
+                user: process.env.EMAIL_ADDRESS,
+                pass: process.env.EMAIL_PASSWORD
             }
         });
         emailTransporter.sendMail(mailOptions, function(err, response) {
             if (err) console.log('error: ', err);
         });
-        return res.status(200).json({ 
-            error: false, 
+        return res.status(200).json({
+            error: false,
             message: "We've sent a link to your email to reset your password. It expires in 24 hours."
         });
     } else { // For testing purposes just return the token rather than send an email
-        return res.status(200).json({ 
-            error: false, 
+        return res.status(200).json({
+            error: false,
             data: {
                 token: token
             }
@@ -145,7 +147,7 @@ router.get('/resetPassword/:token', async function(req, res, next) {
                             .where('token', '=', req.params.token)
                             .where('expires', '>', moment().format('YYYY/MM/DD HH:mm:ss'))
                             .first();
-    if (!passwordResetToken) return sendErrorMessage(res, 400, 
+    if (!passwordResetToken) return sendErrorMessage(res, 400,
         "Your token is expired or invalid. "
         + "Please request a new one"
     );
@@ -208,15 +210,30 @@ router.patch('/resetPassword', async function(req, res, next) {
 * @Protected
 * @Description - Gets the users full account details
 */
-router.get("/userDetails", requireAuth, function (req, res) {
+router.get("/userDetails", requireAuth, async function (req, res) {
+    let date = moment().format("YYYY-MM-DD");
+    // Expire old reservations
+    let reservations = await Reservation.query().patch({ status: 'complete' })
+                            .where('status', '=', 'pending')
+                            .where('end_date', '<', moment().format("YYYY-MM-DD"))
+                            .where('user_id', '=', req.user.userId)
+                            .returning('*');
+    if (reservations.length > 0) {
+        // Sum up the cost of newly expired reservations
+        var totalCost = reservations.reduce(
+            (accumulator, currentValue) => accumulator + parseInt(currentValue.totalCost), 0
+        );
+        req.user.rewardPoints += Math.round(totalCost * 0.10);
+        await User.query().patch({
+            rewardPoints: req.user.rewardPoints
+        }).where('user_id', '=', req.user.userId);
+    }
     delete req.user.password;
     res.status(200).json({
         error: false,
         data: req.user
     });
 });
-
-
 /**
 * @Protected
 * @Description - Route for testing auth functionality
