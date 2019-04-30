@@ -121,7 +121,7 @@ router.post('/', requireAuth, async (req, res) => {
                 source: req.body.stripeToken,
                 customer: req.user.stripeCustomerId
             }));
-            if (err && err.statusCode == 400) {
+            if (err && err.type == 'StripeInvalidRequestError') {
                 await trx.rollback();
                 return sendErrorMessage(res, 400, err.message);
             } else if (err) {
