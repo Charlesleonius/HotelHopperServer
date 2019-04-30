@@ -16,8 +16,9 @@ router.post('/paymentMethods', requireAuth, async (req, res) => {
         token: 'required|string',
     });
     if (validator.fails()) return sendValidationErrors(res, validator);
+    console.log("req:" + req.user.stripeCustomerId)
     let [err, source] = await catchAll(stripe.customers.createSource(req.user.stripeCustomerId, { 
-        source: 'tok_mastercard', 
+        source: req.body.token, 
     }));
     if (err && err.statusCode == 400) {
         return sendErrorMessage(res, 400, err.message);
@@ -36,9 +37,7 @@ router.get('/paymentMethods', requireAuth, async (req, res) => {
     if (err) return sendErrorMessage(res, 500, err.message);
     res.status(200).json({
         error: false,
-        data: {
-            sources
-        }
+        data: sources.data
     });
 });
 
