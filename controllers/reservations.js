@@ -17,7 +17,6 @@ const { raw, transaction } = require('objection');
  * @Description - Creates a reservation based on the given hotel, rooms, and dates
  * This method is wrapped in a transaction such that if any event fails all
  * database changes will be rolled back.
- * @TODO - Ensure user does not have a confilicting reservation
  */
 router.post('/', requireAuth, async (req, res) => {
     let validator = new Validator({
@@ -56,8 +55,10 @@ router.post('/', requireAuth, async (req, res) => {
         trx = await transaction.start(Hotel.knex());
         // Check whether the user requests different hotel on same date
         var [err, conflict] = await catchAll(Reservation.query(trx)
-            .whereRaw('start_date >= ? AND start_date <= ?', [startDate, endDate])
-            .orWhereRaw('end_date >= ? AND end_date <= ?', [startDate, endDate])
+            .whereRaw('(start_date >= ? AND start_date <= ?)', [startDate, endDate])
+            .whereNot('status', '=', 'cancelled')
+            .orWhereRaw('(end_date >= ? AND end_date <= ?)', [startDate, endDate])
+            .whereNot('status', '=', 'cancelled')
             .first()
         );
         if (conflict) {
@@ -115,9 +116,9 @@ router.post('/', requireAuth, async (req, res) => {
             }).patch({ rewardPoints: req.user.rewardPoints - (totalCost * 2) });
         } else {
             var [err, charge] = await catchAll(stripe.charges.create({
-                amount: totalCost,
+                amount: totalCost * 100,
                 currency: 'usd',
-                description: 'Reservation id: ' + reservation,
+                description: 'Reservation id: ' + reservation.reservation_id,
                 source: req.body.stripeToken,
                 customer: req.user.stripeCustomerId
             }));
@@ -144,7 +145,7 @@ router.post('/', requireAuth, async (req, res) => {
                 return sendErrorMessage(res, 500, "Something went wrong. Please try again later.")
             }
         }
-        const mailOptions = {
+        let mailOptions = {
             from: "hotelhopperhelp@gmail.com",
             to: req.user.email,
             subject: "Congrats on your reservation!",
@@ -170,29 +171,81 @@ router.post('/', requireAuth, async (req, res) => {
     } catch (err) {
         console.log(err);
         await trx.rollback();
+        console.log(err)
         sendErrorMessage(res, 500, "Something went wrong, please try again later.")
     }
 });
 
 /**
  * @Protected
- * @Description - Cancel reservation based on id
+ * @Description - Updates the status of a given reservation
+ * @TODO - Charge saved token from reservation
  */
-router.post('/cancel', requireAuth, (req, res) => {
+router.post('/:id/cancel', requireAuth, async (req, res) => {
     let validator = new Validator({
-        reservationId: req.body.reservationId,
+        id: req.params.id
     }, {
-            reservationId: 'required|integer',
-        });
+        id: 'required|numeric|min:1'
+    });
     if (validator.fails()) return sendValidationErrors(res, validator);
-    Reservation.query().where({ reservation_id: req.body.reservationId }).patch({
-        status: 'cancel'
-    }).then(reservation => {
-        const mailOptions = {
+
+    let id = req.params.id;
+    let reservation = await Reservation.query()
+        .select()
+        .from('reservation')
+        .where({ reservation_id: id }).first();
+
+    if (!reservation) {
+        return res.status(404).json({
+            error: true,
+            message: `Reservation ID ${id} does not exist`
+        });
+    } else if (reservation.status == 'cancelled') {
+        return res.status(401).json({
+            error: true,
+            message: `You're not allowed to change a cancelled reservation`
+        });
+    }
+
+    var trx;
+    try {
+        trx = await transaction.start(Reservation.knex());
+        await Reservation.query(trx).where({ reservation_id: id }).update({ status: 'cancelled' });
+        // refund
+        var [err, refund] = await catchAll(stripe.refunds.create({
+            charge: reservation.stripeChargeId,
+        }));
+        if (err && err.statusCode == 400) {
+            trx.rollback();
+            return sendErrorMessage(res, 400, err.message);
+        } else if (err) {
+            console.log(err);
+            trx.rollback();
+            return sendErrorMessage(res, 500, "Could not complete refund. "
+                + "Please try again later.");
+        }
+        // cancellation fee
+        var [err, charge] = await catchAll(stripe.charges.create({
+            amount: 4500,
+            currency: 'usd',
+            description: 'Cancelled reservation id: ' + reservation.reservationId,
+            source: reservation.stripeTokenId,
+            customer: req.user.stripeCustomerId
+        }));
+        if (err && err.statusCode == 400) {
+            trx.rollback();
+            return sendErrorMessage(res, 400, err.message);
+        } else if (err) {
+            console.log(err);
+            trx.rollback();
+            return sendErrorMessage(res, 500, "Could not complete refund. "
+                + "Please try again later.");
+        }
+        let mailOptions = {
             from: "hotelhopperhelp@gmail.com",
             to: req.user.email,
             subject: "Your reservation has been canceled",
-            text: "Your reservation has been successfully canceled! We are sorry that we have to charge you %%%%!"
+            text: "Your reservation has been successfully canceled! We are sorry that we have to charge you $45."
         };
         let emailTransporter = nodemailer.createTransport({
             service: 'Gmail',
@@ -204,17 +257,16 @@ router.post('/cancel', requireAuth, (req, res) => {
         emailTransporter.sendMail(mailOptions, function (err, response) {
             if (err) console.log("error: ", err);
         });
+        await trx.commit()
         return res.status(200).json({
             error: false,
-            message: "Your reservation has been successfully canceled! We are sorry that we have to charge you %%%%"
-        })
-    }).catch(err => {
-        console.log(err);
-        return res.status(500).json({
-            error: true,
-            message: err.message
-        });
-    })
+            message: "Your reservation has been successfully canceled! We are sorry that we have to charge you $45"
+        }); 
+    } catch(err) {
+        console.log(err)
+        return sendErrorMessage(res, 500, "Something went wrong! Please try again later.") 
+    }
+
 });
 
 /**
