@@ -26,7 +26,7 @@ router.post('/', requireAuth, async (req, res) => {
         startDate: req.body.startDate,
         endDate: req.body.endDate,
         stripeToken: req.body.stripeToken,
-        isRedeem: req.body.isRedeem
+        usePoints: req.body.usePoints
     }, {
             hotelId: 'required|integer',
             rooms: 'required',
@@ -34,13 +34,14 @@ router.post('/', requireAuth, async (req, res) => {
             'rooms.*.count': 'required|integer',
             startDate: 'required|date|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}$/',
             endDate: 'required|date|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}$/',
-            stripeToken: 'required|string',
-            isRedeem: 'required|boolean'
+            usePoints: 'boolean',
+            stripeToken: 'required_without:usePoints|string',
         }, {
             "regex.startDate": "Please use the date format yyyy-mm-dd",
             "regex.endDate": "Please use the date format yyyy-mm-dd"
         });
     if (validator.fails()) return sendValidationErrors(res, validator);
+    let usePoints = req.body.usePoints || false;
     let startDate = moment(req.body.startDate).format("YYYY-MM-DD");
     let endDate = moment(req.body.endDate).format('YYYY-MM-DD');
     let todaysDate = moment().format("YYYY-MM-DD");
@@ -52,33 +53,27 @@ router.post('/', requireAuth, async (req, res) => {
     }
     let trx;
     try {
+        trx = await transaction.start(Hotel.knex());
         // Check whether the user requests different hotel on same date
-        const results = await Reservation.query()
-            .where('user_id', '=', req.user.userId)
-            .whereNot('hotel_id', '=', req.body.hotelId)
-        for (var reserve of results) {
-            const reserveStart = moment(reserve.startDate).format("YYYY-MM-DD")
-            const reserveEnd = moment(reserve.endDate).format("YYYY-MM-DD")
-            const check = ((reserveEnd <= startDate && reserveEnd < endDate)
-                || (reserveStart >= endDate && reserveStart > startDate));
-            if (!check) {
-                return sendErrorMessage(res, 400,
-                    "Sorry you've requested hotels on the same dates."
-                );
-            }
-        }
-        if (results) {
+        var [err, conflict] = await catchAll(Reservation.query(trx)
+            .whereRaw('start_date >= ? AND start_date <= ?', [startDate, endDate])
+            .orWhereRaw('end_date >= ? AND end_date <= ?', [startDate, endDate])
+            .first()
+        );
+        if (conflict) {
+            await trx.rollback();
             return sendErrorMessage(res, 400,
-                "Sorry you've requested hotels on the same dates."
+                "Sorry you already have a reservation at another hotel at this time. "
+                + "Please select dates that don't conflict."
             );
         }
-        trx = await transaction.start(Hotel.knex());
         let reservation = await Reservation.query(trx).insert({
             hotelId: req.body.hotelId,
             userId: req.user.userId,
             startDate: startDate,
             endDate: endDate,
             status: "pending",
+            usePoints: usePoints
         });
         // Determine whether the rooms requested are available
         let totalCost = 0;
@@ -111,10 +106,6 @@ router.post('/', requireAuth, async (req, res) => {
             }
         }
         await ReservedRoom.query(trx).insert(roomsForInseriton);
-        // check if the user is buying with reward points
-        if (req.body.isRedeem) {
-            totalCost = -totalCost;
-        }
         var [err, updated] = await catchAll(Reservation.query(trx).where({
             hotelId: req.body.hotelId,
             userId: req.user.userId
@@ -124,20 +115,29 @@ router.post('/', requireAuth, async (req, res) => {
             console.log(err);
             return sendErrorMessage(res, 500, "Something went wrong. Please try again later.")
         }
-        var [err, charge] = await catchAll(stripe.charges.create({
-            amount: 999,
-            currency: 'usd',
-            description: 'Reservation id: ' + reservation,
-            source: req.body.stripeToken
-        }));
-        if (err && err.statusCode == 400) {
-            await trx.rollback();
-            return sendErrorMessage(res, 400, err.message);
-        } else if (err) {
-            await trx.rollback();
-            console.log(err);
-            return sendErrorMessage(res, 500, "Could not complete charge. "
-                + "Please try again later.");
+        if (usePoints) {
+            if (req.user.rewardPoints < (totalCost * 2)) return sendErrorMessage(res, 400,
+                "You don't have enough reward points yet. Keep booking with us to earn your free stay!"
+            )
+            await User.query(trx).where({
+                userId: req.user.userId
+            }).patch({ rewardPoints: req.user.rewardPoints - (totalCost * 2) });
+        } else {
+            var [err, charge] = await catchAll(stripe.charges.create({
+                amount: 999,
+                currency: 'usd',
+                description: 'Reservation id: ' + reservation,
+                source: req.body.stripeToken
+            }));
+            if (err && err.statusCode == 400) {
+                await trx.rollback();
+                return sendErrorMessage(res, 400, err.message);
+            } else if (err) {
+                await trx.rollback();
+                console.log(err);
+                return sendErrorMessage(res, 500, "Could not complete charge. "
+                    + "Please try again later.");
+            }
         }
         const mailOptions = {
             from: "hotelhopperhelp@gmail.com",
@@ -154,7 +154,7 @@ router.post('/', requireAuth, async (req, res) => {
             }
         });
         await trx.commit();
-        emailTransporter.sendMail(mailOptions, function (err, response) { });
+        emailTransporter.sendMail(mailOptions, function (err, response) {});
         return res.status(200).json({
             error: false,
             message: "Your reservation has been successfully created!",
@@ -163,6 +163,7 @@ router.post('/', requireAuth, async (req, res) => {
             }
         });
     } catch (err) {
+        console.log(err);
         await trx.rollback();
         sendErrorMessage(res, 500, "Something went wrong, please try again later.")
     }
