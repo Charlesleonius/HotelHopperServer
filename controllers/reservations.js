@@ -17,7 +17,6 @@ const { raw, transaction } = require('objection');
  * @Description - Creates a reservation based on the given hotel, rooms, and dates
  * This method is wrapped in a transaction such that if any event fails all
  * database changes will be rolled back.
- * @TODO - Ensure user does not have a confilicting reservation
  */
 router.post('/', requireAuth, async (req, res) => {
     let validator = new Validator({
@@ -146,7 +145,7 @@ router.post('/', requireAuth, async (req, res) => {
                 return sendErrorMessage(res, 500, "Something went wrong. Please try again later.")
             }
         }
-        const mailOptions = {
+        let mailOptions = {
             from: "hotelhopperhelp@gmail.com",
             to: req.user.email,
             subject: "Congrats on your reservation!",
@@ -179,91 +178,6 @@ router.post('/', requireAuth, async (req, res) => {
 
 /**
  * @Protected
- * @Description - Creates a reservation based on the given hotel, rooms, and dates
- * @TODO - Add validation to ensure the proper amount of each room is available. 
- * Add stripe, rewards points, and a confirmation email.
- */
-router.post('/', requireAuth, async (req, res) => {
-    let validator = new Validator({
-        hotelID: req.body.hotelID,
-        rooms: req.body.rooms,
-        startDate: req.body.startDate,
-        endDate: req.body.endDate,
-        stripeToken: req.body.stripeToken
-    }, {
-            hotelID: 'required|integer',
-            rooms: 'required',
-            'rooms.*.roomTypeID': 'required|integer',
-            'rooms.*.count': 'required|integer',
-            startDate: 'required|date|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}$/',
-            endDate: 'required|date|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}$/',
-            stripeToken: 'required|string'
-        }, {
-            "regex.startDate": "Please use the date format yyyy-mm-dd",
-            "regex.endDate": "Please use the date format yyyy-mm-dd"
-        });
-    if (validator.fails()) return sendValidationErrors(res, validator);
-    let startDate = moment(req.body.startDate).format("YYYY-MM-DD");
-    let endDate = moment(req.body.endDate).format('YYYY-MM-DD');
-    let todaysDate = moment().format("YYYY-MM-DD");
-    if (startDate < todaysDate || endDate < startDate) {
-        return res.status(400).json({
-            error: true,
-            message: "Invalid date range. Make sure your reservation isn't in the past!"
-        });
-    }
-    Reservation.query().insert({
-        hotelID: req.body.hotelID,
-        userID: req.user.userId,
-        startDate: startDate,
-        endDate: endDate,
-        status: 'pending'
-    }).then(reservation => {
-        let promises = [];
-        for (var i in req.body.rooms) {
-            let room = req.body.rooms[i];
-            for (j = 0; j < room.count; j++) {
-                let promise = ReservedRoom.query().insert({
-                    reservationId: reservation.reservationId,
-                    hotelId: req.body.hotelID,
-                    roomTypeId: room.roomTypeID,
-                    startDate: startDate,
-                    endDate: endDate
-                })
-                promises.push(promise);
-            }
-        }
-        Promise.all(promises).then(async () => {
-            var [err, charge] = await catchAll(stripe.charges.create({
-                amount: 999,
-                currency: 'usd',
-                description: 'Reservation id: ' + reservation,
-                source: req.body.stripeToken,
-                customer: req.user.stripeCustomerId
-            }));
-            if (err && err.statusCode == 400) {
-                return sendErrorMessage(res, 400, err.message);
-            } else if (err) {
-                console.log(err);
-                return sendErrorMessage(res, 500, "Could not complete charge. "
-                    + "Please try again later.");
-            }
-            return res.status(200).json({
-                error: false,
-                message: "Your reservation has been successfully created!"
-            })
-        })
-    }).catch(err => {
-        console.log(err);
-        return res.status(500).json({
-            error: true,
-            message: err.message
-        });
-    })
-});
-
-/**
- * @Protected
  * @Description - Updates the status of a given reservation
  * @TODO - Charge saved token from reservation
  */
@@ -271,11 +185,11 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
     let validator = new Validator({
         id: req.params.id
     }, {
-            id: 'required|numeric|min:1'
-        });
+        id: 'required|numeric|min:1'
+    });
     if (validator.fails()) return sendValidationErrors(res, validator);
 
-    const id = req.params.id;
+    let id = req.params.id;
     let reservation = await Reservation.query()
         .select()
         .from('reservation')
@@ -297,7 +211,6 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
     try {
         trx = await transaction.start(Reservation.knex());
         await Reservation.query(trx).where({ reservation_id: id }).update({ status: 'cancelled' });
-
         // refund
         var [err, refund] = await catchAll(stripe.refunds.create({
             charge: reservation.stripeChargeId,
@@ -311,7 +224,6 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
             return sendErrorMessage(res, 500, "Could not complete refund. "
                 + "Please try again later.");
         }
-
         // cancellation fee
         var [err, charge] = await catchAll(stripe.charges.create({
             amount: 4500,
@@ -329,8 +241,7 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
             return sendErrorMessage(res, 500, "Could not complete refund. "
                 + "Please try again later.");
         }
-
-        const mailOptions = {
+        let mailOptions = {
             from: "hotelhopperhelp@gmail.com",
             to: req.user.email,
             subject: "Your reservation has been canceled",
@@ -346,7 +257,6 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
         emailTransporter.sendMail(mailOptions, function (err, response) {
             if (err) console.log("error: ", err);
         });
-
         await trx.commit()
         return res.status(200).json({
             error: false,

@@ -37,9 +37,7 @@ router.get('/paymentMethods', requireAuth, async (req, res) => {
     if (err) return sendErrorMessage(res, 500, err.message);
     res.status(200).json({
         error: false,
-        data: {
-            sources
-        }
+        data: sources.data
     });
 });
 
