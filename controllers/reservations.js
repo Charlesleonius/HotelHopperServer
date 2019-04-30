@@ -201,7 +201,7 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
     } else if (reservation.usePoints) {
         return res.status(401).json({
             error: true,
-            message: `You're not allowed cancel a reservation made with points`
+            message: `You're can not cancel a reservation made with points`
         });
     } 
 
