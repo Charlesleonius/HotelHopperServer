@@ -428,6 +428,8 @@ paths:
             example:
               error: false
               message: "Card added successfully"
+              data:
+                sourceId: "card_1EUlWNJJU2YEsvxmIMNFyCYS"
         400:
           description: "Bad Request"
           schema:
