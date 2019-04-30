@@ -16,6 +16,8 @@ tags:
   description: "Hotel search, details and more"
 - name: "reservations"
   description: "Create, retreive, delete reservations"
+- name: "payment methods"
+  description: "Create, retreive, delete payment methods"
 schemes:
 - "https"
 
@@ -397,6 +399,102 @@ paths:
           description: "Unauthorized"
           schema:
             $ref: '#/definitions/UnauthorizedResponse'
+# Payment Methods
+  /users/paymentMethods:
+    post:
+      tags:
+      - "payment methods"
+      summary: "Add a new payment method using a token retrieved form stripe.js. 
+                Make sure to use the stripe publishable key pk_test_jb9MEwI7swz2HaPrZXzMQSSL00stxhlhgd"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            token:
+              type: string
+          example:
+            token: "tok_1EUlWOJJU2YEsvxm15TqaGzd"
+      responses:
+        200:
+          description: "OK"
+          schema:
+            type: object
+            example:
+              error: false
+              message: "Card added successfully"
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+        401:
+          description: "Unauthorized"
+          schema:
+            $ref: '#/definitions/UnauthorizedResponse'
+    delete:
+      tags:
+      - "payment methods"
+      summary: "Deletes a payment method from the user given its id."
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      parameters:
+      - name: body
+        in: body
+        schema:
+          type: object
+          properties:
+            paymentMethodId:
+              type: string
+          example:
+            paymentMethodId: "card_1EPjc0JJU2YEsvxmCaZn280J"
+      responses:
+        200:
+          description: "OK"
+          schema:
+            type: object
+            example:
+              error: false
+              message: "Card removed successfully"
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+        401:
+          description: "Unauthorized"
+          schema:
+            $ref: '#/definitions/UnauthorizedResponse'
+    get:
+      tags:
+      - "payment methods"
+      summary: "Retrieves all of the saved payment methods"
+      consumes:
+        - "application/json"
+      produces:
+        - "application/json"
+      responses:
+        200:
+          description: "OK"
+          schema:
+            type: object
+            example:
+              error: false
+              data: "Array of stripe card objects. See https://stripe.com/docs/api/cards/object"
+        400:
+          description: "Bad Request"
+          schema:
+            $ref: '#/definitions/BadRequestResponse'
+        401:
+          description: "Unauthorized"
+          schema:
+            $ref: '#/definitions/UnauthorizedResponse'      
+
 
 securityDefinitions:
   api_key:
