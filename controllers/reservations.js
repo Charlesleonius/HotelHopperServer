@@ -30,7 +30,7 @@ router.post('/', requireAuth, async (req, res) => {
             hotelId: 'required|integer',
             rooms: 'required',
             'rooms.*.roomTypeId': 'required|integer',
-            'rooms.*.count': 'required|integer',
+            'rooms.*.count': 'required|integer|min: 1',
             startDate: 'required|date|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}$/',
             endDate: 'required|date|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}$/',
             usePoints: 'boolean',
@@ -114,6 +114,10 @@ router.post('/', requireAuth, async (req, res) => {
             await User.query(trx).where({
                 userId: req.user.userId
             }).patch({ rewardPoints: req.user.rewardPoints - (totalCost * 2) });
+            await Reservation.query(trx).where({
+                hotelId: req.body.hotelId,
+                userId: req.user.userId
+            }).patch({ totalCost: totalCost });
         } else {
             var [err, charge] = await catchAll(stripe.charges.create({
                 amount: totalCost * 100,
@@ -131,19 +135,14 @@ router.post('/', requireAuth, async (req, res) => {
                 return sendErrorMessage(res, 500, "Could not complete charge. "
                     + "Please try again later.");
             }
-            var [err, updated] = await catchAll(Reservation.query(trx).where({
+            await Reservation.query(trx).where({
                 hotelId: req.body.hotelId,
                 userId: req.user.userId
             }).patch({ 
                 totalCost: totalCost, 
                 stripe_token_id: req.body.stripeToken,
                 stripe_charge_id: charge.id
-            }));
-            if (!updated) {
-                await trx.rollback();
-                console.log(err);
-                return sendErrorMessage(res, 500, "Something went wrong. Please try again later.")
-            }
+            });
         }
         let mailOptions = {
             from: "hotelhopperhelp@gmail.com",
@@ -169,7 +168,6 @@ router.post('/', requireAuth, async (req, res) => {
             }
         });
     } catch (err) {
-        console.log(err);
         await trx.rollback();
         console.log(err)
         sendErrorMessage(res, 500, "Something went wrong, please try again later.")
