@@ -25,7 +25,8 @@ router.post('/', requireAuth, async (req, res) => {
         rooms: req.body.rooms,
         startDate: req.body.startDate,
         endDate: req.body.endDate,
-        stripeToken: req.body.stripeToken
+        stripeToken: req.body.stripeToken,
+        usePoints: req.body.usePoints
     }, {
             hotelId: 'required|integer',
             rooms: 'required',
@@ -33,12 +34,14 @@ router.post('/', requireAuth, async (req, res) => {
             'rooms.*.count': 'required|integer',
             startDate: 'required|date|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}$/',
             endDate: 'required|date|regex:/[0-9]{4}-[0-9]{2}-[0-9]{2}$/',
-            stripeToken: 'required|string'
+            usePoints: 'boolean',
+            stripeToken: 'required_without:usePoints|string',
         }, {
             "regex.startDate": "Please use the date format yyyy-mm-dd",
             "regex.endDate": "Please use the date format yyyy-mm-dd"
         });
     if (validator.fails()) return sendValidationErrors(res, validator);
+    let usePoints = req.body.usePoints || false;
     let startDate = moment(req.body.startDate).format("YYYY-MM-DD");
     let endDate = moment(req.body.endDate).format('YYYY-MM-DD');
     let todaysDate = moment().format("YYYY-MM-DD");
@@ -51,12 +54,28 @@ router.post('/', requireAuth, async (req, res) => {
     let trx;
     try {
         trx = await transaction.start(Hotel.knex());
+        // Check whether the user requests different hotel on same date
+        var [err, conflict] = await catchAll(Reservation.query(trx)
+            .whereRaw('(start_date >= ? AND start_date <= ?)', [startDate, endDate])
+            .whereNot('status', '=', 'cancelled')
+            .orWhereRaw('(end_date >= ? AND end_date <= ?)', [startDate, endDate])
+            .whereNot('status', '=', 'cancelled')
+            .first()
+        );
+        if (conflict) {
+            await trx.rollback();
+            return sendErrorMessage(res, 400,
+                "Sorry you already have a reservation at another hotel at this time. "
+                + "Please select dates that don't conflict."
+            );
+        }
         let reservation = await Reservation.query(trx).insert({
             hotelId: req.body.hotelId,
             userId: req.user.userId,
             startDate: startDate,
             endDate: endDate,
             status: "pending",
+            usePoints: usePoints
         });
         // Determine whether the rooms requested are available
         let totalCost = 0;
@@ -89,29 +108,43 @@ router.post('/', requireAuth, async (req, res) => {
             }
         }
         await ReservedRoom.query(trx).insert(roomsForInseriton);
-        var [err, updated] = await catchAll(Reservation.query(trx).where({
-            hotelId: req.body.hotelId,
-            userId: req.user.userId
-        }).patch({ totalCost: totalCost }));
-        if (!updated) {
-            await trx.rollback();
-            console.log(err);
-            return sendErrorMessage(res, 500, "Something went wrong. Please try again later.")
-        }
-        var [err, charge] = await catchAll(stripe.charges.create({
-            amount: 999,
-            currency: 'usd',
-            description: 'Reservation id: ' + reservation,
-            source: req.body.stripeToken
-        }));
-        if (err && err.statusCode == 400) {
-            await trx.rollback();
-            return sendErrorMessage(res, 400, err.message);
-        } else if (err) {
-            await trx.rollback();
-            console.log(err);
-            return sendErrorMessage(res, 500, "Could not complete charge. "
-                + "Please try again later.");
+        if (usePoints) {
+            if (req.user.rewardPoints < (totalCost * 2)) return sendErrorMessage(res, 400,
+                "You don't have enough reward points yet. Keep booking with us to earn your free stay!"
+            )
+            await User.query(trx).where({
+                userId: req.user.userId
+            }).patch({ rewardPoints: req.user.rewardPoints - (totalCost * 2) });
+        } else {
+            var [err, charge] = await catchAll(stripe.charges.create({
+                amount: totalCost * 100,
+                currency: 'usd',
+                description: 'Reservation id: ' + reservation.reservation_id,
+                source: req.body.stripeToken,
+                customer: req.user.stripeCustomerId
+            }));
+            if (err && err.type == 'StripeInvalidRequestError') {
+                await trx.rollback();
+                return sendErrorMessage(res, 400, err.message);
+            } else if (err) {
+                await trx.rollback();
+                console.log(err);
+                return sendErrorMessage(res, 500, "Could not complete charge. "
+                    + "Please try again later.");
+            }
+            var [err, updated] = await catchAll(Reservation.query(trx).where({
+                hotelId: req.body.hotelId,
+                userId: req.user.userId
+            }).patch({ 
+                totalCost: totalCost, 
+                stripe_token_id: req.body.stripeToken,
+                stripe_charge_id: charge.id
+            }));
+            if (!updated) {
+                await trx.rollback();
+                console.log(err);
+                return sendErrorMessage(res, 500, "Something went wrong. Please try again later.")
+            }
         }
         const mailOptions = {
             from: "hotelhopperhelp@gmail.com",
@@ -128,7 +161,7 @@ router.post('/', requireAuth, async (req, res) => {
             }
         });
         await trx.commit();
-        emailTransporter.sendMail(mailOptions, function (err, response) { });
+        emailTransporter.sendMail(mailOptions, function (err, response) {});
         return res.status(200).json({
             error: false,
             message: "Your reservation has been successfully created!",
@@ -137,6 +170,7 @@ router.post('/', requireAuth, async (req, res) => {
             }
         });
     } catch (err) {
+        console.log(err);
         await trx.rollback();
         console.log(err)
         sendErrorMessage(res, 500, "Something went wrong, please try again later.")
@@ -233,27 +267,15 @@ router.post('/', requireAuth, async (req, res) => {
  * @Description - Updates the status of a given reservation
  * @TODO - Charge saved token from reservation
  */
-router.patch('/:id/:status', requireAuth, async (req, res) => {
+router.post('/:id/cancel', requireAuth, async (req, res) => {
     let validator = new Validator({
-        id: req.params.id,
-        status: req.params.status,
-        stripeToken: req.body.stripeToken
+        id: req.params.id
     }, {
-            id: 'required|numeric|min:1',
-            status: 'required|string',
-            stripeToken: 'required|string'
+            id: 'required|numeric|min:1'
         });
     if (validator.fails()) return sendValidationErrors(res, validator);
+
     const id = req.params.id;
-    const status = req.params.status;
-
-    if (!(status == 'pending' || status == 'completed' || status == 'cancelled')) {
-        return res.status(404).json({
-            error: true,
-            message: 'Status can only be pending, completed, or cancelled'
-        });
-    }
-
     let reservation = await Reservation.query()
         .select()
         .from('reservation')
@@ -271,18 +293,21 @@ router.patch('/:id/:status', requireAuth, async (req, res) => {
         });
     }
 
-    await Reservation.query().where({ reservation_id: id }).update({ status: status });
-
-    if (status == 'cancelled') {
+    var trx;
+    try {
+        trx = await transaction.start(Reservation.knex());
+        await Reservation.query(trx).where({ reservation_id: id }).update({ status: 'cancelled' });
 
         // refund
         var [err, refund] = await catchAll(stripe.refunds.create({
-            charge: reservation.charge,
+            charge: reservation.stripeChargeId,
         }));
         if (err && err.statusCode == 400) {
+            trx.rollback();
             return sendErrorMessage(res, 400, err.message);
         } else if (err) {
             console.log(err);
+            trx.rollback();
             return sendErrorMessage(res, 500, "Could not complete refund. "
                 + "Please try again later.");
         }
@@ -292,14 +317,15 @@ router.patch('/:id/:status', requireAuth, async (req, res) => {
             amount: 4500,
             currency: 'usd',
             description: 'Cancelled reservation id: ' + reservation.reservationId,
-
-            source: req.body.stripeToken,
-            //customer: req.user.stripeCustomerId
+            source: reservation.stripeTokenId,
+            customer: req.user.stripeCustomerId
         }));
         if (err && err.statusCode == 400) {
+            trx.rollback();
             return sendErrorMessage(res, 400, err.message);
         } else if (err) {
             console.log(err);
+            trx.rollback();
             return sendErrorMessage(res, 500, "Could not complete refund. "
                 + "Please try again later.");
         }
@@ -320,17 +346,17 @@ router.patch('/:id/:status', requireAuth, async (req, res) => {
         emailTransporter.sendMail(mailOptions, function (err, response) {
             if (err) console.log("error: ", err);
         });
+
+        await trx.commit()
         return res.status(200).json({
             error: false,
             message: "Your reservation has been successfully canceled! We are sorry that we have to charge you $45"
-        });
-
-    } else {
-        return res.status(200).json({
-            error: false,
-            message: `Your reservation has been updated to ${status}.`
-        });
+        }); 
+    } catch(err) {
+        console.log(err)
+        return sendErrorMessage(res, 500, "Something went wrong! Please try again later.") 
     }
+
 });
 
 /**

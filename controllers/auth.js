@@ -211,7 +211,6 @@ router.patch('/resetPassword', async function(req, res, next) {
 * @Description - Gets the users full account details
 */
 router.get("/userDetails", requireAuth, async function (req, res) {
-    let date = moment().format("YYYY-MM-DD");
     // Expire old reservations
     let reservations = await Reservation.query().patch({ status: 'complete' })
                             .where('status', '=', 'pending')
@@ -220,9 +219,10 @@ router.get("/userDetails", requireAuth, async function (req, res) {
                             .returning('*');
     if (reservations.length > 0) {
         // Sum up the cost of newly expired reservations
-        var totalCost = reservations.reduce(
-            (accumulator, currentValue) => accumulator + parseInt(currentValue.totalCost), 0
-        );
+        totalCost = 0;
+        for (reservation of reservations) {
+            totalCost += parseInt(reservation.totalCost) * (!reservation.usePoints);
+        }
         req.user.rewardPoints += Math.round(totalCost * 0.10);
         await User.query().patch({
             rewardPoints: req.user.rewardPoints
@@ -234,6 +234,8 @@ router.get("/userDetails", requireAuth, async function (req, res) {
         data: req.user
     });
 });
+
+
 /**
 * @Protected
 * @Description - Route for testing auth functionality
