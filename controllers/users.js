@@ -16,7 +16,6 @@ router.post('/paymentMethods', requireAuth, async (req, res) => {
         token: 'required|string',
     });
     if (validator.fails()) return sendValidationErrors(res, validator);
-    console.log("req:" + req.user.stripeCustomerId)
     let [err, source] = await catchAll(stripe.customers.createSource(req.user.stripeCustomerId, { 
         source: req.body.token, 
     }));
@@ -28,7 +27,10 @@ router.post('/paymentMethods', requireAuth, async (req, res) => {
     }
     res.status(200).json({
         error: false,
-        message: 'Card added successfully'
+        message: 'Card added successfully',
+        data: {
+            sourceId: source.id
+        }
     });
 });
 
