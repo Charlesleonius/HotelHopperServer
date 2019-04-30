@@ -200,12 +200,12 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
             error: true,
             message: `Reservation ID ${id} does not exist`
         });
-    } else if (reservation.status == 'cancelled') {
+    } else if (reservation.usePoints) {
         return res.status(401).json({
             error: true,
-            message: `You're not allowed to change a cancelled reservation`
+            message: `You're not allowed cancel a reservation made with points`
         });
-    }
+    } 
 
     var trx;
     try {
