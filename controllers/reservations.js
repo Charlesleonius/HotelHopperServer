@@ -106,15 +106,6 @@ router.post('/', requireAuth, async (req, res) => {
             }
         }
         await ReservedRoom.query(trx).insert(roomsForInseriton);
-        var [err, updated] = await catchAll(Reservation.query(trx).where({
-            hotelId: req.body.hotelId,
-            userId: req.user.userId
-        }).patch({ totalCost: totalCost }));
-        if (!updated) {
-            await trx.rollback();
-            console.log(err);
-            return sendErrorMessage(res, 500, "Something went wrong. Please try again later.")
-        }
         if (usePoints) {
             if (req.user.rewardPoints < (totalCost * 2)) return sendErrorMessage(res, 400,
                 "You don't have enough reward points yet. Keep booking with us to earn your free stay!"
@@ -124,10 +115,11 @@ router.post('/', requireAuth, async (req, res) => {
             }).patch({ rewardPoints: req.user.rewardPoints - (totalCost * 2) });
         } else {
             var [err, charge] = await catchAll(stripe.charges.create({
-                amount: 999,
+                amount: totalCost,
                 currency: 'usd',
                 description: 'Reservation id: ' + reservation,
-                source: req.body.stripeToken
+                source: req.body.stripeToken,
+                customer: req.user.stripeCustomerId
             }));
             if (err && err.statusCode == 400) {
                 await trx.rollback();
@@ -137,6 +129,19 @@ router.post('/', requireAuth, async (req, res) => {
                 console.log(err);
                 return sendErrorMessage(res, 500, "Could not complete charge. "
                     + "Please try again later.");
+            }
+            var [err, updated] = await catchAll(Reservation.query(trx).where({
+                hotelId: req.body.hotelId,
+                userId: req.user.userId
+            }).patch({ 
+                totalCost: totalCost, 
+                stripe_token_id: req.body.stripeToken,
+                stripe_charge_id: charge.id
+            }));
+            if (!updated) {
+                await trx.rollback();
+                console.log(err);
+                return sendErrorMessage(res, 500, "Something went wrong. Please try again later.")
             }
         }
         const mailOptions = {
