@@ -32,6 +32,7 @@ class Hotel extends Model {
                             (start_date >= ? AND start_date <= ?) \
                             OR (end_date >= ? AND end_date <= ?) \
                         ) \
+                        AND reserved_room.status = \'pending\' \
                         AND reserved_room.hotel_id = hotel_room.hotel_id \
                         AND reserved_room.room_type_id = hotel_room.room_type_id \
                     )) as INTEGER) \
