@@ -57,8 +57,12 @@ router.post('/', requireAuth, async (req, res) => {
         var [err, conflict] = await catchAll(Reservation.query(trx)
             .whereRaw('(start_date >= ? AND start_date <= ?)', [startDate, endDate])
             .whereNot('status', '=', 'cancelled')
+            .whereNot('hotel_id', '=', req.body.hotelId)
+            .where('user_id', '=', req.user.userId)
             .orWhereRaw('(end_date >= ? AND end_date <= ?)', [startDate, endDate])
             .whereNot('status', '=', 'cancelled')
+            .whereNot('hotel_id', '=', req.body.hotelId)
+            .where('user_id', '=', req.user.userId)
             .first()
         );
         if (conflict) {
@@ -134,8 +138,8 @@ router.post('/', requireAuth, async (req, res) => {
             var [err, updated] = await catchAll(Reservation.query(trx).where({
                 hotelId: req.body.hotelId,
                 userId: req.user.userId
-            }).patch({ 
-                totalCost: totalCost, 
+            }).patch({
+                totalCost: totalCost,
                 stripe_token_id: req.body.stripeToken,
                 stripe_charge_id: charge.id
             }));
@@ -205,7 +209,7 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
             error: true,
             message: `You're not allowed cancel a reservation made with points`
         });
-    } 
+    }
 
     var trx;
     try {
@@ -261,10 +265,10 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
         return res.status(200).json({
             error: false,
             message: "Your reservation has been successfully canceled! We are sorry that we have to charge you $45"
-        }); 
+        });
     } catch(err) {
         console.log(err)
-        return sendErrorMessage(res, 500, "Something went wrong! Please try again later.") 
+        return sendErrorMessage(res, 500, "Something went wrong! Please try again later.")
     }
 
 });
