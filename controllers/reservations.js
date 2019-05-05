@@ -55,10 +55,12 @@ router.post('/', requireAuth, async (req, res) => {
         trx = await transaction.start(Hotel.knex());
         // Check whether the user requests different hotel on same date
         var [err, conflict] = await catchAll(Reservation.query(trx)
-            .whereRaw('(start_date >= ? AND start_date <= ?)', [startDate, endDate])
-            .whereNot('status', '=', 'cancelled')
-            .orWhereRaw('(end_date >= ? AND end_date <= ?)', [startDate, endDate])
-            .whereNot('status', '=', 'cancelled')
+            .whereRaw("(start_date >= ? AND start_date <= ?)", [startDate, endDate])
+            .andWhere('status', '!=', 'cancelled')
+            .andWhere('hotel_id', '!=', req.body.hotelId)
+            .orWhereRaw("(end_date >= ? AND end_date <= ?)", [startDate, endDate])
+            .andWhere('status', '!=', 'cancelled')
+            .andWhere('hotel_id', '!=', req.body.hotelId)
             .first()
         );
         if (conflict) {
@@ -209,6 +211,7 @@ router.post('/:id/cancel', requireAuth, async (req, res) => {
     try {
         trx = await transaction.start(Reservation.knex());
         await Reservation.query(trx).where({ reservation_id: id }).update({ status: 'cancelled' });
+        await ReservedRoom.query(trx).where({ reservation_id: id }).update({ status: 'cancelled' });
         // refund
         var [err, refund] = await catchAll(stripe.refunds.create({
             charge: reservation.stripeChargeId,
