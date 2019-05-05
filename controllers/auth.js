@@ -103,10 +103,10 @@ router.post('/forgotPassword', async function(req, res, next) {
     PasswordResetToken.query().delete().where('user_id', '=', user.userId); //Asynchronously destroy old tokens
     await PasswordResetToken.query().insert({ token: token, expires: moment().add(1, 'days'), userId: user.userId });
     if (process.env.NODE_ENV != "test") { // Send email in staging or production environments
-        let  resetURL = ("https://" + process.env.APP_URL + "/reset/token")
+        let  resetURL = ("https://" + process.env.APP_URL + "/reset/" + token)
         const mailOptions = {
             from: 'hotelhopperhelp@gmail.com',
-            to: 'user.email',
+            to: req.body.email,
             subject: 'Reset Your Password from Hotel Hopper!',
             text:
                 "You are receiving this email because you have requested to reset the password for your account.\n\n" +
@@ -175,7 +175,7 @@ router.patch('/resetPassword', async function(req, res, next) {
         token: 'required'
     });
     if (validator.fails()) return sendValidationErrors(res, validator);
-    if (req.body.confirmPassword != req.body.password) return sendErrorMessage(res, 400, 
+    if (req.body.confirmPassword != req.body.password) return sendErrorMessage(res, 400,
         "Password and password confirmation don't match. \
         For your security please resubmit with matching passwords."
     );
