@@ -103,7 +103,7 @@ router.post('/forgotPassword', async function(req, res, next) {
     PasswordResetToken.query().delete().where('user_id', '=', user.userId); //Asynchronously destroy old tokens
     await PasswordResetToken.query().insert({ token: token, expires: moment().add(1, 'days'), userId: user.userId });
     if (process.env.NODE_ENV != "test") { // Send email in staging or production environments
-        let  resetURL = ("https://" + process.env.APP_URL + "/reset/token")
+        let  resetURL = ("https://" + process.env.APP_URL + "/reset/" + token)
         const mailOptions = {
             from: 'hotelhopperhelp@gmail.com',
             to: req.body.email,
