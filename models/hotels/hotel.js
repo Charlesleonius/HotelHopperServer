@@ -24,7 +24,8 @@ class Hotel extends Model {
         let rooms = await knex.raw(
             '( \
                 SELECT room_type.room_type_id as "roomTypeId", room_type.title, \
-                room_type.description, room_type.persons, room_type.beds, hotel_room.price, \
+                room_type.description, room_type.persons, room_type.beds, \
+                hotel_room.price, hotel_room.image_url, \
                 ( \
                     CAST((hotel_room.room_count - ( \
                         SELECT count(*) FROM reserved_room \
