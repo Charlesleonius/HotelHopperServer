@@ -143,8 +143,8 @@ router.get('/', async (req, res) => {
                     .select(raw('MIN(price)').as('min_price'))
                     .havingRaw('MIN(price) <= ?', [req.query.maxPrice]))
             }
-            if (req.query.amenities) {
-                requestedAmenities = req.query.amenities.split(',').map(Number);
+            if (req.query.requestedAmenities) {
+                requestedAmenities = req.query.requestedAmenities.split(',').map(Number);
                 queryBuilder.whereExists(
                     HotelAmenity.query().whereIn('amenity_id', requestedAmenities)
                     .select(raw('COUNT(*)'))
